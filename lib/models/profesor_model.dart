@@ -1,4 +1,4 @@
-// lib/models/profesor_model.dart
+import 'review_model.dart';
 
 class Profesor {
   final String id;
@@ -6,6 +6,7 @@ class Profesor {
   final String curso;
   final double calificacion;
   final String fotoUrl;
+  final List<Review> reviews; // comentarios de los esudiantes
 
   Profesor({
     required this.id,
@@ -13,5 +14,6 @@ class Profesor {
     required this.curso,
     required this.calificacion,
     required this.fotoUrl,
+    required this.reviews,
   });
 }
