@@ -14,15 +14,68 @@ class AddReviewScreen extends StatefulWidget {
 }
 
 class _AddReviewScreenState extends State<AddReviewScreen> {
-  // var de estaod
-  double _rating = 3.0; // valor inicial
+  double _rating = 3.0;
   final _commentController = TextEditingController();
+  final _consejoController = TextEditingController();
+
+  Dificultad _dificultad = Dificultad.normal;
+  OportunidadAprobacion _oportunidad = OportunidadAprobacion.probable;
+  final List<String> _metodosSeleccionados = [];
+
+  final List<String> _metodos = [
+    'Clases magistrales',
+    'Ejercicios prácticos',
+    'Trabajos en grupo',
+    'Laboratorio',
+    'Resolución de problemas',
+  ];
 
   @override
   void dispose() {
-    // liberamos el controlador cuando el widget se destruye para evitar fugas de memoria
     _commentController.dispose();
+    _consejoController.dispose();
     super.dispose();
+  }
+
+  String _getDificultadLabel(Dificultad d) {
+    switch (d) {
+      case Dificultad.muyFacil:
+        return 'Muy Fácil';
+      case Dificultad.facil:
+        return 'Fácil';
+      case Dificultad.normal:
+        return 'Normal';
+      case Dificultad.dificil:
+        return 'Difícil';
+      case Dificultad.muyDificil:
+        return 'Muy Difícil';
+    }
+  }
+
+  String _getOportunidadLabel(OportunidadAprobacion o) {
+    switch (o) {
+      case OportunidadAprobacion.casioSeguroe:
+        return 'Casi seguro (95%+)';
+      case OportunidadAprobacion.probable:
+        return 'Probable (70-95%)';
+      case OportunidadAprobacion.cincuentaCincuenta:
+        return '50/50';
+      case OportunidadAprobacion.dificil:
+        return 'Difícil (<50%)';
+    }
+  }
+
+  Color _getOportunidadColor(OportunidadAprobacion o) {
+    switch (o) {
+      case OportunidadAprobacion.casioSeguroe:
+        return Colors.green;
+      case OportunidadAprobacion.probable:
+        return Colors.blue;
+      case OportunidadAprobacion.cincuentaCincuenta:
+        return Colors.orange;
+      case OportunidadAprobacion.dificil:
+        return Colors.red;
+    }
   }
 
   @override
@@ -32,21 +85,19 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('CALIFICAR DOCENTE')),
       body: SingleChildScrollView(
-        // singlechildscrollview para que el teclado no tape el contenido
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // titulo del profesoir
             Text(
-              '¿Que tal fue tu clase con ${widget.profesor.nombre}?',
+              '¿Qué tal fue tu clase con ${widget.profesor.nombre}?',
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
 
-            // seccion de estrellas
+            // ============ PUNTUACION ============
             Text(
-              'SELECCIONA UNA PUNTUACION',
+              'PUNTUACIÓN GENERAL',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -55,7 +106,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
                 return IconButton(
-                  // si el indice es menor al rating pintamos la estrella llena
                   icon: Icon(
                     index < _rating ? Icons.star : Icons.star_border,
                     color: index < _rating
@@ -71,20 +121,147 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                 );
               }),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // seccion de comentario
+            // ============ DIFICULTAD ============
             Text(
-              'DEJA TU COMENTARIO',
+              'DIFICULTAD DE LA MATERIA',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            SegmentedButton<Dificultad>(
+              segments: <ButtonSegment<Dificultad>>[
+                ButtonSegment<Dificultad>(
+                  value: Dificultad.muyFacil,
+                  label: Text(_getDificultadLabel(Dificultad.muyFacil)),
+                ),
+                ButtonSegment<Dificultad>(
+                  value: Dificultad.facil,
+                  label: Text(_getDificultadLabel(Dificultad.facil)),
+                ),
+                ButtonSegment<Dificultad>(
+                  value: Dificultad.normal,
+                  label: Text(_getDificultadLabel(Dificultad.normal)),
+                ),
+                ButtonSegment<Dificultad>(
+                  value: Dificultad.dificil,
+                  label: Text(_getDificultadLabel(Dificultad.dificil)),
+                ),
+                ButtonSegment<Dificultad>(
+                  value: Dificultad.muyDificil,
+                  label: Text(_getDificultadLabel(Dificultad.muyDificil)),
+                ),
+              ],
+              selected: <Dificultad>{_dificultad},
+              onSelectionChanged: (Set<Dificultad> newSelection) {
+                setState(() {
+                  _dificultad = newSelection.first;
+                });
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // ============ OPORTUNIDAD ============
+            Text(
+              'OPORTUNIDAD DE APROBAR',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: OportunidadAprobacion.values.map((o) {
+                final isSelected = _oportunidad == o;
+                return FilterChip(
+                  label: Text(_getOportunidadLabel(o)),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      _oportunidad = o;
+                    });
+                  },
+                  backgroundColor: _getOportunidadColor(
+                    o,
+                  ).withAlpha((0.2 * 255).toInt()),
+                  selectedColor: _getOportunidadColor(o),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : _getOportunidadColor(o),
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+
+            // ============ METODOS ============
+            Text(
+              'MÉTODOS DE ENSEÑANZA',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _metodos.map((metodo) {
+                final isSelected = _metodosSeleccionados.contains(metodo);
+                return FilterChip(
+                  label: Text(metodo),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _metodosSeleccionados.add(metodo);
+                      } else {
+                        _metodosSeleccionados.remove(metodo);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+
+            // ============ CONSEJO ============
+            Text(
+              'CONSEJO PARA OTROS ESTUDIANTES (Opcional)',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _consejoController,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Ej: "Haz todos los trabajos prácticos"',
+                border: theme.inputDecorationTheme.border,
+                enabledBorder: theme.inputDecorationTheme.enabledBorder,
+                focusedBorder: theme.inputDecorationTheme.focusedBorder,
+                filled: theme.inputDecorationTheme.filled,
+                fillColor: theme.inputDecorationTheme.fillColor,
+                contentPadding: theme.inputDecorationTheme.contentPadding,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ============ COMENTARIO ============
+            Text(
+              'COMENTARIO DETALLADO',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _commentController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: 'Escribe aqui tu experiencia con el profe...',
+                hintText: 'Escribe tu experiencia con el profe...',
                 border: theme.inputDecorationTheme.border,
                 enabledBorder: theme.inputDecorationTheme.enabledBorder,
                 focusedBorder: theme.inputDecorationTheme.focusedBorder,
@@ -95,40 +272,41 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
             ),
             const SizedBox(height: 30),
 
-            // btn enviar
+            // ============ BOTON ENVIAR ============
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  // validacion en caso de comentario vacio
                   if (_commentController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('POR FAVOR ESCRIBE UN COMENTARIO'),
+                        content: Text('Por favor escribe un comentario'),
                       ),
                     );
                     return;
                   }
 
-                  // creamos el objeto review con los datos recolectados
                   final newReview = Review(
-                    id: DateTime.now()
-                        .toString(), // generamos un id temporal unico
+                    id: DateTime.now().toString(),
                     comentario: _commentController.text,
                     puntuacion: _rating,
                     fecha: DateTime.now(),
+                    dificultad: _dificultad,
+                    oportunidadAprobacion: _oportunidad,
+                    consejo: _consejoController.text.trim(),
+                    metodosEnsenanza: _metodosSeleccionados,
                   );
 
-                  // cerramos la pantalla y devolvemos el objeto al detalle del profesor
                   Navigator.pop(context, newReview);
                 },
                 child: const Text(
-                  'ENVIAR CALIFICACION',
+                  'ENVIAR CALIFICACIÓN',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
