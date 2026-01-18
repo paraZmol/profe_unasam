@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/profesor_model.dart';
+import '../models/review_model.dart';
+import 'add_review_screen.dart';
 
 class ProfesorDetailScreen extends StatelessWidget {
   final Profesor profesor;
@@ -71,13 +73,25 @@ class ProfesorDetailScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   // formulario de votacion
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Formulario de votación (Próximamente)'),
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddReviewScreen(profesor: profesor),
                     ),
                   );
+                  // en caso se envia una receña mostramos un mensaje
+                  if (result != null && result is Review) {
+                    // verificamos que el contexto siga activo antes de mostrar el mensaje
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('GRACIAS POR TU CALIFICACION'),
+                        ),
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
@@ -116,8 +130,10 @@ class ProfesorDetailScreen extends StatelessWidget {
               )
             else
               ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap:
+                    true, // permite que el listview viva dentro de un scrollview
+                physics:
+                    const NeverScrollableScrollPhysics(), // evita conflictos de scroll
                 itemCount: profesor.reviews.length,
                 itemBuilder: (context, index) {
                   final review = profesor.reviews[index];
