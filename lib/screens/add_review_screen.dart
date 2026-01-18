@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
+import 'package:profe_unasam/theme/app_theme.dart';
 
 class AddReviewScreen extends StatefulWidget {
   final Profesor profesor;
@@ -26,12 +27,10 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CALIFICAR DOCENTE'),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('CALIFICAR DOCENTE')),
       body: SingleChildScrollView(
         // singlechildscrollview para que el teclado no tape el contenido
         padding: const EdgeInsets.all(20.0),
@@ -41,12 +40,17 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
             // titulo del profesoir
             Text(
               '¿Que tal fue tu clase con ${widget.profesor.nombre}?',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
 
             // seccion de estrellas
-            const Text('SELECCIONA UNA PUNTUACION'),
+            Text(
+              'SELECCIONA UNA PUNTUACION',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) {
@@ -54,7 +58,9 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                   // si el indice es menor al rating pintamos la estrella llena
                   icon: Icon(
                     index < _rating ? Icons.star : Icons.star_border,
-                    color: index < _rating ? Colors.amber : Colors.grey[400],
+                    color: index < _rating
+                        ? AppTheme.accentAmber
+                        : theme.disabledColor,
                     size: 40,
                   ),
                   onPressed: () {
@@ -68,13 +74,23 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
             const SizedBox(height: 20),
 
             // seccion de comentario
-            const Text('DEJA TU COMENTARIO'),
+            Text(
+              'DEJA TU COMENTARIO',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             TextField(
               controller: _commentController,
               maxLines: 4,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Escribe aqui tu experiencia con el profe...',
-                border: OutlineInputBorder(),
+                border: theme.inputDecorationTheme.border,
+                enabledBorder: theme.inputDecorationTheme.enabledBorder,
+                focusedBorder: theme.inputDecorationTheme.focusedBorder,
+                filled: theme.inputDecorationTheme.filled,
+                fillColor: theme.inputDecorationTheme.fillColor,
+                contentPadding: theme.inputDecorationTheme.contentPadding,
               ),
             ),
             const SizedBox(height: 30),
@@ -84,13 +100,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
                 onPressed: () {
                   // validacion en caso de comentario vacio
                   if (_commentController.text.trim().isEmpty) {

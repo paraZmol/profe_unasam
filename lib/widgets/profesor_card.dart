@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/screens/profesor_detail_screen.dart';
+import 'package:profe_unasam/theme/app_theme.dart';
 
 class ProfesorCard extends StatelessWidget {
   final Profesor profesor;
@@ -10,9 +11,10 @@ class ProfesorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
       clipBehavior: Clip.antiAlias, // para que el efecto respete bordes
       child: InkWell(
         // para detectar el toque
@@ -33,14 +35,17 @@ class ProfesorCard extends StatelessWidget {
                 tag: profesor.id,
                 child: CircleAvatar(
                   radius: 30,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage:
                       profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
                       ? NetworkImage(profesor.fotoUrl)
                       : null,
                   onBackgroundImageError: (exception, stackTrace) {},
                   child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
-                      ? const Icon(Icons.person)
+                      ? Icon(
+                          Icons.person,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        )
                       : null,
                 ),
               ),
@@ -49,17 +54,13 @@ class ProfesorCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      profesor.nombre,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    Text(profesor.nombre, style: theme.textTheme.titleLarge),
                     const SizedBox(height: 4),
                     Text(
                       profesor.curso,
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -67,16 +68,16 @@ class ProfesorCard extends StatelessWidget {
               const SizedBox(width: 16),
               Column(
                 children: [
-                  const Text(
-                    'Calificación',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  Text(
-                    profesor.calificacion.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Text('Calificación', style: theme.textTheme.bodySmall),
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: AppTheme.accentAmber, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        profesor.calificacion.toStringAsFixed(1),
+                        style: theme.textTheme.titleLarge,
+                      ),
+                    ],
                   ),
                 ],
               ),

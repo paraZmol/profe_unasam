@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/screens/add_review_screen.dart';
+import 'package:profe_unasam/theme/app_theme.dart';
 
 class ProfesorDetailScreen extends StatefulWidget {
   final Profesor profesor;
@@ -24,12 +25,10 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final profesor = widget.profesor;
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(profesor.nombre),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text(profesor.nombre)),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -40,14 +39,18 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 tag: profesor.id,
                 child: CircleAvatar(
                   radius: 80,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage:
                       profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
                       ? NetworkImage(profesor.fotoUrl)
                       : null,
                   onBackgroundImageError: (_, __) {},
                   child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
-                      ? const Icon(Icons.person, size: 80)
+                      ? Icon(
+                          Icons.person,
+                          size: 80,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        )
                       : null,
                 ),
               ),
@@ -55,85 +58,83 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
             const SizedBox(height: 20),
 
             // informacion principal
-            Text(
-              profesor.nombre,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
+            Text(profesor.nombre, style: theme.textTheme.displayMedium),
             Text(
               profesor.curso,
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            const Divider(height: 40, indent: 20, endIndent: 20),
+            Divider(
+              height: 40,
+              indent: 20,
+              endIndent: 20,
+              color: theme.dividerColor,
+            ),
 
             // seccion de la calificacion
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.star, color: Colors.amber, size: 40),
+                Icon(Icons.star, color: AppTheme.accentAmber, size: 40),
                 const SizedBox(width: 10),
                 Text(
                   _computedRating().toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.displayLarge,
                 ),
               ],
             ),
-            const Text(
-              'Calificación General',
-              style: TextStyle(color: Colors.grey),
-            ),
+            Text('Calificación General', style: theme.textTheme.bodySmall),
             const SizedBox(height: 24),
 
             // btn calificar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ElevatedButton(
-                onPressed: () async {
-                  // formulario de votacion
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AddReviewScreen(profesor: profesor),
-                    ),
-                  );
-                  // en caso se envia una receña mostramos un mensaje
-                  if (result != null && result is Review) {
-                    // agregamos la reseña a la lista y refrescamos la UI
-                    setState(() {
-                      profesor.reviews.insert(0, result);
-                    });
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    // formulario de votacion
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddReviewScreen(profesor: profesor),
+                      ),
+                    );
+                    // en caso se envia una receña mostramos un mensaje
+                    if (result != null && result is Review) {
+                      // agregamos la reseña a la lista y refrescamos la UI
+                      setState(() {
+                        profesor.reviews.insert(0, result);
+                      });
 
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('GRACIAS POR TU CALIFICACION'),
-                        ),
-                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('GRACIAS POR TU CALIFICACION'),
+                          ),
+                        );
+                      }
                     }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  },
+                  child: const Text(
+                    'CALIFICAR AL PROFESOR',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-                child: const Text(
-                  'CALIFICAR AL PROFESOR',
-                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
             const SizedBox(height: 16),
 
             if (profesor.reviews.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text('Aún no hay comentarios para este profesor.'),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Aún no hay comentarios para este profesor.',
+                  style: theme.textTheme.bodyMedium,
+                ),
               )
             else
               ListView.builder(
@@ -163,24 +164,21 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                                     i < review.puntuacion
                                         ? Icons.star
                                         : Icons.star_border,
-                                    color: Colors.amber,
+                                    color: AppTheme.accentAmber,
                                     size: 16,
                                   );
                                 }),
                               ),
                               Text(
                                 '${review.fecha.day}/${review.fecha.month}/${review.fecha.year}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                                style: theme.textTheme.bodySmall,
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(
                             review.comentario,
-                            style: const TextStyle(fontSize: 14),
+                            style: theme.textTheme.bodyMedium,
                           ),
                         ],
                       ),
