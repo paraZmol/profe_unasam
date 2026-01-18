@@ -1,7 +1,7 @@
 // lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
-import '../widgets/profesor_card.dart';
+import 'package:profe_unasam/data/mock_data.dart';
+import 'package:profe_unasam/widgets/profesor_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

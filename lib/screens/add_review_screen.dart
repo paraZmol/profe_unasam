@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/profesor_model.dart';
-import '../models/review_model.dart';
+import 'package:profe_unasam/models/profesor_model.dart';
+import 'package:profe_unasam/models/review_model.dart';
 
 class AddReviewScreen extends StatefulWidget {
   final Profesor profesor;

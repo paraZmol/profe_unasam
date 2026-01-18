@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/profesor_model.dart';
-import '../screens/profesor_detail_screen.dart';
+import 'package:profe_unasam/models/profesor_model.dart';
+import 'package:profe_unasam/screens/profesor_detail_screen.dart';
 
 class ProfesorCard extends StatelessWidget {
   final Profesor profesor;
@@ -30,13 +30,18 @@ class ProfesorCard extends StatelessWidget {
           child: Row(
             children: [
               Hero(
-                // animacion entre pantallas
                 tag: profesor.id,
                 child: CircleAvatar(
                   radius: 30,
-                  backgroundImage: NetworkImage(profesor.fotoUrl),
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage:
+                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                      ? NetworkImage(profesor.fotoUrl)
+                      : null,
                   onBackgroundImageError: (exception, stackTrace) {},
-                  child: const Icon(Icons.person),
+                  child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
+                      ? const Icon(Icons.person)
+                      : null,
                 ),
               ),
               const SizedBox(width: 16),
@@ -67,7 +72,7 @@ class ProfesorCard extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(
-                    profesor.calificacion.toString(),
+                    profesor.calificacion.toStringAsFixed(1),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 
-import '../models/profesor_model.dart';
-import '../models/review_model.dart';
-import 'add_review_screen.dart';
+import 'package:profe_unasam/models/profesor_model.dart';
+import 'package:profe_unasam/models/review_model.dart';
+import 'package:profe_unasam/screens/add_review_screen.dart';
 
-class ProfesorDetailScreen extends StatelessWidget {
+class ProfesorDetailScreen extends StatefulWidget {
   final Profesor profesor;
 
   const ProfesorDetailScreen({super.key, required this.profesor});
 
   @override
+  State<ProfesorDetailScreen> createState() => _ProfesorDetailScreenState();
+}
+
+class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
+  double _computedRating() {
+    final reviews = widget.profesor.reviews;
+    if (reviews.isEmpty) return widget.profesor.calificacion;
+    final total = reviews.fold<double>(0.0, (s, r) => s + r.puntuacion);
+    return total / reviews.length;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final profesor = widget.profesor;
     return Scaffold(
       appBar: AppBar(
         title: Text(profesor.nombre),
@@ -27,9 +40,13 @@ class ProfesorDetailScreen extends StatelessWidget {
                 tag: profesor.id,
                 child: CircleAvatar(
                   radius: 80,
-                  backgroundImage: NetworkImage(profesor.fotoUrl),
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage:
+                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                      ? NetworkImage(profesor.fotoUrl)
+                      : null,
                   onBackgroundImageError: (_, __) {},
-                  child: profesor.fotoUrl == 'url' || profesor.fotoUrl.isEmpty
+                  child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
                       ? const Icon(Icons.person, size: 80)
                       : null,
                 ),
@@ -55,7 +72,7 @@ class ProfesorDetailScreen extends StatelessWidget {
                 const Icon(Icons.star, color: Colors.amber, size: 40),
                 const SizedBox(width: 10),
                 Text(
-                  '${profesor.calificacion}',
+                  _computedRating().toStringAsFixed(1),
                   style: const TextStyle(
                     fontSize: 48,
                     fontWeight: FontWeight.bold,
@@ -83,7 +100,11 @@ class ProfesorDetailScreen extends StatelessWidget {
                   );
                   // en caso se envia una receña mostramos un mensaje
                   if (result != null && result is Review) {
-                    // verificamos que el contexto siga activo antes de mostrar el mensaje
+                    // agregamos la reseña a la lista y refrescamos la UI
+                    setState(() {
+                      profesor.reviews.insert(0, result);
+                    });
+
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -104,20 +125,6 @@ class ProfesorDetailScreen extends StatelessWidget {
                 child: const Text(
                   'CALIFICAR AL PROFESOR',
                   style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // seccion de comentarios
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Comentarios de Estudiantes',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

@@ -1,4 +1,4 @@
-import 'review_model.dart';
+import 'package:profe_unasam/models/review_model.dart';
 
 class Profesor {
   final String id;
