@@ -6,20 +6,20 @@ final List<Profesor> mockProfesores = [
     nombre: 'Bubu Buble',
     curso: 'Programación',
     calificacion: 4.5,
-    fotoUrl: 'https://i.pravatar.cc/150?img=1',
+    fotoUrl: 'https://i.pravatar.cc/150?img=11',
   ),
   Profesor(
     id: 'p002',
     nombre: 'Chatox',
     curso: 'PHP',
     calificacion: 4.9,
-    fotoUrl: 'url'
+    fotoUrl: 'https://i.pravatar.cc/150?img=3',
   ),
   Profesor(
     id: 'p003',
     nombre: 'Silva',
     curso: 'Porgramación III',
     calificacion: 2,
-    fotoUrl: 'url3'
+    fotoUrl: 'https://i.pravatar.cc/150?img=5',
   ),
 ];
