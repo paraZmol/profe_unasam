@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/screens/add_review_screen.dart';
+import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
 
 class ProfesorDetailScreen extends StatefulWidget {
@@ -15,16 +16,25 @@ class ProfesorDetailScreen extends StatefulWidget {
 }
 
 class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
+  late Profesor _profesor;
+  final _dataService = DataService();
+
+  @override
+  void initState() {
+    super.initState();
+    _profesor = widget.profesor;
+  }
+
   double _computedRating() {
-    final reviews = widget.profesor.reviews;
-    if (reviews.isEmpty) return widget.profesor.calificacion;
+    final reviews = _profesor.reviews;
+    if (reviews.isEmpty) return _profesor.calificacion;
     final total = reviews.fold<double>(0.0, (s, r) => s + r.puntuacion);
     return total / reviews.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final profesor = widget.profesor;
+    final profesor = _profesor;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -59,6 +69,17 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
 
             // informacion principal
             Text(profesor.nombre, style: theme.textTheme.displayMedium),
+            if (profesor.apodo != null && profesor.apodo!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '"${profesor.apodo}"',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
             Text(
               profesor.curso,
               style: theme.textTheme.bodyLarge?.copyWith(
@@ -105,15 +126,20 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                     );
                     // en caso se envia una receña mostramos un mensaje
                     if (result != null && result is Review) {
-                      // agregamos la reseña a la lista y refrescamos la UI
+                      // agregar resena al servicio de datos
+                      _dataService.agregarResena(profesor.id, result);
+
+                      // refrescar la ui con los datos actualizados
                       setState(() {
-                        profesor.reviews.insert(0, result);
+                        _profesor = _dataService.getProfesores().firstWhere(
+                          (p) => p.id == profesor.id,
+                        );
                       });
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('GRACIAS POR TU CALIFICACION'),
+                            content: Text('gracias por tu calificacion'),
                           ),
                         );
                       }

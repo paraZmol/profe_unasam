@@ -54,7 +54,27 @@ class ProfesorCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profesor.nombre, style: theme.textTheme.titleLarge),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            profesor.nombre,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (profesor.apodo != null && profesor.apodo!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '"${profesor.apodo}"',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 4),
                     Text(
                       profesor.curso,
