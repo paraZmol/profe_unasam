@@ -1,9 +1,11 @@
 import 'package:profe_unasam/data/mock_data.dart';
 import 'package:profe_unasam/models/app_notification.dart';
 import 'package:profe_unasam/models/facultad_model.dart';
+import 'package:profe_unasam/models/app_user.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/models/user_plan.dart';
+import 'package:profe_unasam/models/user_role.dart';
 
 class DataService {
   static final DataService _instance = DataService._internal();
@@ -14,6 +16,8 @@ class DataService {
   final Set<String> _followedProfesorIds = {};
   final Set<String> _followedCourses = {};
   final List<AppNotification> _notifications = [];
+  UserRole _role = UserRole.admin;
+  AppUser? _currentUser;
 
   DataService._internal() {
     _profesores = List.from(mockProfesores);
@@ -23,6 +27,54 @@ class DataService {
   factory DataService() {
     return _instance;
   }
+
+  // ======= Auth local =======
+  bool get isLoggedIn => _currentUser != null;
+
+  AppUser? getCurrentUser() => _currentUser;
+
+  void login({
+    required String email,
+    required String password,
+    required String alias,
+  }) {
+    _currentUser = AppUser(
+      id: 'u${DateTime.now().millisecondsSinceEpoch}',
+      email: email.trim(),
+      alias: alias.trim(),
+    );
+  }
+
+  void logout() {
+    _currentUser = null;
+    _role = UserRole.user;
+    _plan = UserPlan.free;
+    _trialEndsAt = null;
+    _followedProfesorIds.clear();
+    _followedCourses.clear();
+    _notifications.clear();
+  }
+
+  void updateProfile({String? alias, String? email}) {
+    if (_currentUser == null) return;
+    _currentUser = AppUser(
+      id: _currentUser!.id,
+      email: email ?? _currentUser!.email,
+      alias: alias ?? _currentUser!.alias,
+    );
+  }
+
+  // ======= Roles =======
+  UserRole getRole() => _role;
+
+  void setRole(UserRole role) {
+    _role = role;
+  }
+
+  bool get canManageFacultades => _role == UserRole.admin;
+
+  bool get canAddProfesor =>
+      _role == UserRole.admin || _role == UserRole.moderator;
 
   // ======= Planes y acceso =======
   UserPlan getPlan() {

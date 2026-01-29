@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:profe_unasam/screens/home_screen.dart';
+import 'package:profe_unasam/screens/login_screen.dart';
+import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
 
 void main() {
@@ -15,6 +17,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
+  final _dataService = DataService();
 
   @override
   Widget build(BuildContext context) {
@@ -24,14 +27,20 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: HomeScreen(
-        onThemeToggle: (isDark) {
-          setState(() {
-            _isDarkMode = isDark;
-          });
-        },
-        isDarkMode: _isDarkMode,
-      ),
+      home: _dataService.isLoggedIn
+          ? HomeScreen(
+              onThemeToggle: (isDark) {
+                setState(() {
+                  _isDarkMode = isDark;
+                });
+              },
+              isDarkMode: _isDarkMode,
+            )
+          : LoginScreen(
+              onLogin: () {
+                setState(() {});
+              },
+            ),
     );
   }
 }

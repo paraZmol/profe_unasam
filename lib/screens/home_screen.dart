@@ -4,10 +4,12 @@ import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/screens/add_profesor_screen.dart';
 import 'package:profe_unasam/screens/admin_facultades_screen.dart';
 import 'package:profe_unasam/screens/notifications_screen.dart';
+import 'package:profe_unasam/screens/profile_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/widgets/profesor_card.dart';
 import 'package:profe_unasam/widgets/search_filter_bar.dart';
 import 'package:profe_unasam/models/user_plan.dart';
+import 'package:profe_unasam/models/user_role.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(bool)? onThemeToggle;
@@ -123,6 +125,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _showRoleSheet() async {
+    final theme = Theme.of(context);
+    final currentRole = _dataService.getRole();
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rol actual: ${currentRole.label}',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings),
+                  title: const Text('Administrador'),
+                  subtitle: const Text('Control total del sistema'),
+                  trailing: currentRole == UserRole.admin
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setRole(UserRole.admin);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.gavel),
+                  title: const Text('Moderador'),
+                  subtitle: const Text('Puede agregar profesores'),
+                  trailing: currentRole == UserRole.moderator
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setRole(UserRole.moderator);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('Usuario'),
+                  subtitle: const Text('Acceso estándar'),
+                  trailing: currentRole == UserRole.user
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setRole(UserRole.user);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   List<Profesor> _applyFilters() {
     // aplicar filtros de busqueda y curso
     var filtered = _dataService.getProfesores().where((profesor) {
@@ -175,7 +246,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final courses = _getUniqueCourses();
     final unreadCount = _dataService.getUnreadNotificationsCount();
-    final currentPlan = _dataService.getPlan();
 
     return Scaffold(
       appBar: AppBar(
@@ -224,11 +294,37 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'plan',
             onPressed: _showPlanSheet,
           ),
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'perfil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              ).then((_) => setState(() {}));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings),
+            tooltip: 'rol',
+            onPressed: _showRoleSheet,
+          ),
           // boton para administrar facultades
           IconButton(
             icon: const Icon(Icons.school),
             tooltip: 'administrar facultades y escuelas',
             onPressed: () {
+              if (!_dataService.canManageFacultades) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Solo administradores pueden gestionar facultades',
+                    ),
+                  ),
+                );
+                return;
+              }
+
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -293,6 +389,17 @@ class _HomeScreenState extends State<HomeScreen> {
       // boton flotante para agregar nuevo profesor
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
+          if (!_dataService.canAddProfesor) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Solo administradores o moderadores pueden agregar',
+                ),
+              ),
+            );
+            return;
+          }
+
           Navigator.push(
             context,
             MaterialPageRoute(
