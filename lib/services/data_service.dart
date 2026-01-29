@@ -1,12 +1,19 @@
 import 'package:profe_unasam/data/mock_data.dart';
+import 'package:profe_unasam/models/app_notification.dart';
 import 'package:profe_unasam/models/facultad_model.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
+import 'package:profe_unasam/models/user_plan.dart';
 
 class DataService {
   static final DataService _instance = DataService._internal();
   late List<Profesor> _profesores;
   late List<Facultad> _facultades;
+  UserPlan _plan = UserPlan.free;
+  DateTime? _trialEndsAt;
+  final Set<String> _followedProfesorIds = {};
+  final Set<String> _followedCourses = {};
+  final List<AppNotification> _notifications = [];
 
   DataService._internal() {
     _profesores = List.from(mockProfesores);
@@ -15,6 +22,87 @@ class DataService {
 
   factory DataService() {
     return _instance;
+  }
+
+  // ======= Planes y acceso =======
+  UserPlan getPlan() {
+    if (_plan == UserPlan.trial && _trialEndsAt != null) {
+      if (DateTime.now().isAfter(_trialEndsAt!)) {
+        _plan = UserPlan.free;
+        _trialEndsAt = null;
+      }
+    }
+    return _plan;
+  }
+
+  bool get hasFullAccess {
+    final plan = getPlan();
+    return plan == UserPlan.premium || plan == UserPlan.trial;
+  }
+
+  int getTrialDaysRemaining() {
+    if (_plan != UserPlan.trial || _trialEndsAt == null) return 0;
+    final diff = _trialEndsAt!.difference(DateTime.now());
+    return diff.inDays < 0 ? 0 : diff.inDays + 1;
+  }
+
+  void setPlanFree() {
+    _plan = UserPlan.free;
+    _trialEndsAt = null;
+  }
+
+  void startTrial({int days = 7}) {
+    _plan = UserPlan.trial;
+    _trialEndsAt = DateTime.now().add(Duration(days: days));
+  }
+
+  void setPlanPremium() {
+    _plan = UserPlan.premium;
+    _trialEndsAt = null;
+  }
+
+  // ======= Seguimiento =======
+  bool isProfesorFollowed(String profesorId) {
+    return _followedProfesorIds.contains(profesorId);
+  }
+
+  bool isCourseFollowed(String curso) {
+    return _followedCourses.contains(curso.toLowerCase());
+  }
+
+  void toggleFollowProfesor(String profesorId) {
+    if (isProfesorFollowed(profesorId)) {
+      _followedProfesorIds.remove(profesorId);
+    } else {
+      _followedProfesorIds.add(profesorId);
+    }
+  }
+
+  void toggleFollowCourse(String curso) {
+    final key = curso.toLowerCase();
+    if (isCourseFollowed(curso)) {
+      _followedCourses.remove(key);
+    } else {
+      _followedCourses.add(key);
+    }
+  }
+
+  // ======= Notificaciones =======
+  List<AppNotification> getNotifications() => List.unmodifiable(_notifications);
+
+  int getUnreadNotificationsCount() {
+    return _notifications.where((n) => !n.isRead).length;
+  }
+
+  void markNotificationRead(String id) {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      _notifications[index] = _notifications[index].copyWith(isRead: true);
+    }
+  }
+
+  void clearNotifications() {
+    _notifications.clear();
   }
 
   // obtener todos los profesores
@@ -74,6 +162,31 @@ class DataService {
     );
 
     _profesores[indice] = profesorActualizado;
+
+    _crearNotificacionSiAplica(profesorActualizado, review);
+  }
+
+  void _crearNotificacionSiAplica(Profesor profesor, Review review) {
+    final sigueProfesor = isProfesorFollowed(profesor.id);
+    final sigueCurso = isCourseFollowed(profesor.curso);
+    if (!sigueProfesor && !sigueCurso) return;
+
+    final id = 'n${DateTime.now().millisecondsSinceEpoch}';
+    final title = sigueProfesor
+        ? 'Nueva reseña para ${profesor.nombre}'
+        : 'Nueva reseña en ${profesor.curso}';
+    final body =
+        'Se publicó una reseña con ${review.puntuacion.toStringAsFixed(1)} estrellas.';
+
+    _notifications.insert(
+      0,
+      AppNotification(
+        id: id,
+        title: title,
+        body: body,
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   // calcular calificacion promedio

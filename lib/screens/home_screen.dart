@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/screens/add_profesor_screen.dart';
 import 'package:profe_unasam/screens/admin_facultades_screen.dart';
+import 'package:profe_unasam/screens/notifications_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/widgets/profesor_card.dart';
 import 'package:profe_unasam/widgets/search_filter_bar.dart';
+import 'package:profe_unasam/models/user_plan.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(bool)? onThemeToggle;
@@ -50,6 +52,75 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchQuery = _searchController.text.toLowerCase();
       _filteredProfesores = _applyFilters();
     });
+  }
+
+  Future<void> _showPlanSheet() async {
+    final theme = Theme.of(context);
+    final currentPlan = _dataService.getPlan();
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tu plan actual: ${currentPlan.label}',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.lock_open),
+                  title: const Text('Gratis'),
+                  subtitle: const Text('Vista resumida y reseñas limitadas'),
+                  trailing: currentPlan == UserPlan.free
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setPlanFree();
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.timer),
+                  title: const Text('Iniciar prueba (7 días)'),
+                  subtitle: const Text('Acceso completo temporal'),
+                  trailing: currentPlan == UserPlan.trial
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.startTrial(days: 7);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.workspace_premium),
+                  title: const Text('Premium'),
+                  subtitle: const Text('Acceso completo sin límites'),
+                  trailing: currentPlan == UserPlan.premium
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setPlanPremium();
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   List<Profesor> _applyFilters() {
@@ -103,12 +174,56 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final courses = _getUniqueCourses();
+    final unreadCount = _dataService.getUnreadNotificationsCount();
+    final currentPlan = _dataService.getPlan();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profesores UNASAM'),
+        title: Text('Profesores UNASAM (${currentPlan.label})'),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications),
+                if (unreadCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        unreadCount > 9 ? '9+' : '$unreadCount',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onError,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            tooltip: 'notificaciones',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationsScreen(),
+                ),
+              ).then((_) => setState(() {}));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.workspace_premium),
+            tooltip: 'plan',
+            onPressed: _showPlanSheet,
+          ),
           // boton para administrar facultades
           IconButton(
             icon: const Icon(Icons.school),

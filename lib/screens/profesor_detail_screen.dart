@@ -5,6 +5,7 @@ import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/screens/add_review_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
+import 'package:profe_unasam/models/user_plan.dart';
 
 class ProfesorDetailScreen extends StatefulWidget {
   final Profesor profesor;
@@ -93,10 +94,90 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
     }
   }
 
+  bool get _hasFullAccess => _dataService.hasFullAccess;
+
+  void _showPlanSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final currentPlan = _dataService.getPlan();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tu plan actual: ${currentPlan.label}',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.lock_open),
+                  title: const Text('Gratis'),
+                  subtitle: const Text('Vista resumida y reseñas limitadas'),
+                  trailing: currentPlan == UserPlan.free
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setPlanFree();
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.timer),
+                  title: const Text('Iniciar prueba (7 días)'),
+                  subtitle: const Text('Acceso completo temporal'),
+                  trailing: currentPlan == UserPlan.trial
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.startTrial(days: 7);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.workspace_premium),
+                  title: const Text('Premium'),
+                  subtitle: const Text('Acceso completo sin límites'),
+                  trailing: currentPlan == UserPlan.premium
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _dataService.setPlanPremium();
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _truncate(String text, {int maxChars = 80}) {
+    if (text.length <= maxChars) return text;
+    return '${text.substring(0, maxChars)}...';
+  }
+
   @override
   Widget build(BuildContext context) {
     final profesor = _profesor;
     final theme = Theme.of(context);
+    final plan = _dataService.getPlan();
+    final trialDays = _dataService.getTrialDaysRemaining();
+    final isFollowingProfesor = _dataService.isProfesorFollowed(profesor.id);
+    final isFollowingCurso = _dataService.isCourseFollowed(profesor.curso);
 
     return Scaffold(
       appBar: AppBar(title: Text(profesor.nombre)),
@@ -147,6 +228,105 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        plan == UserPlan.premium
+                            ? Icons.workspace_premium
+                            : plan == UserPlan.trial
+                            ? Icons.timer
+                            : Icons.lock_open,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          plan == UserPlan.trial
+                              ? 'Plan: ${plan.label} · $trialDays días restantes'
+                              : 'Plan: ${plan.label}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _showPlanSheet,
+                        child: const Text('cambiar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _hasFullAccess
+                          ? () {
+                              setState(() {
+                                _dataService.toggleFollowProfesor(profesor.id);
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isFollowingProfesor
+                                        ? 'Dejaste de seguir al profesor'
+                                        : 'Ahora sigues a este profesor',
+                                  ),
+                                ),
+                              );
+                            }
+                          : _showPlanSheet,
+                      icon: Icon(
+                        isFollowingProfesor
+                            ? Icons.notifications_active
+                            : Icons.notifications_none,
+                      ),
+                      label: Text(
+                        isFollowingProfesor
+                            ? 'Siguiendo profesor'
+                            : 'Seguir profesor',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _hasFullAccess
+                          ? () {
+                              setState(() {
+                                _dataService.toggleFollowCourse(profesor.curso);
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isFollowingCurso
+                                        ? 'Dejaste de seguir el curso'
+                                        : 'Ahora sigues este curso',
+                                  ),
+                                ),
+                              );
+                            }
+                          : _showPlanSheet,
+                      icon: Icon(
+                        isFollowingCurso ? Icons.school : Icons.school_outlined,
+                      ),
+                      label: Text(
+                        isFollowingCurso ? 'Siguiendo curso' : 'Seguir curso',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Divider(
               height: 40,
               indent: 20,
@@ -167,10 +347,18 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
               ],
             ),
             Text('Calificación General', style: theme.textTheme.bodySmall),
+            if (!_hasFullAccess)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Total de reseñas: ${_profesor.reviews.length}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
             const SizedBox(height: 24),
 
             // ============ RESUMEN DE EVALUACIONES ============
-            if (_profesor.reviews.isNotEmpty)
+            if (_profesor.reviews.isNotEmpty && _hasFullAccess)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -304,6 +492,40 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 ),
               ),
 
+            if (_profesor.reviews.isNotEmpty && !_hasFullAccess)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Resumen de evaluaciones',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Desbloquea para ver dificultad promedio, oportunidad de aprobar, métodos comunes y consejos.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _showPlanSheet,
+                            child: const Text('ver completo'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
             // btn calificar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -359,7 +581,11 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: profesor.reviews.length,
+                itemCount: _hasFullAccess
+                    ? profesor.reviews.length
+                    : (profesor.reviews.length > 3
+                          ? 3
+                          : profesor.reviews.length),
                 itemBuilder: (context, index) {
                   final review = profesor.reviews[index];
                   return Card(
@@ -382,10 +608,16 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                               );
                             }),
                           ),
-                          Text(
-                            '${review.fecha.day}/${review.fecha.month}/${review.fecha.year}',
-                            style: theme.textTheme.bodySmall,
-                          ),
+                          if (_hasFullAccess)
+                            Text(
+                              '${review.fecha.day}/${review.fecha.month}/${review.fecha.year}',
+                              style: theme.textTheme.bodySmall,
+                            )
+                          else
+                            Text(
+                              'vista previa',
+                              style: theme.textTheme.bodySmall,
+                            ),
                         ],
                       ),
                       children: [
@@ -395,79 +627,102 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Dificultad
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.trending_up,
-                                    color: theme.colorScheme.primary,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Dificultad: ${_getDificultadLabel(review.dificultad)}',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Oportunidad
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: _getOportunidadColor(
-                                      review.oportunidadAprobacion,
+                              if (_hasFullAccess) ...[
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.trending_up,
+                                      color: theme.colorScheme.primary,
+                                      size: 20,
                                     ),
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Aprobar: ${_getOportunidadLabel(review.oportunidadAprobacion)}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Dificultad: ${_getDificultadLabel(review.dificultad)}',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Oportunidad
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
                                       color: _getOportunidadColor(
                                         review.oportunidadAprobacion,
                                       ),
-                                      fontWeight: FontWeight.bold,
+                                      size: 20,
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Métodos
-                              if (review.metodosEnsenanza.isNotEmpty)
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: review.metodosEnsenanza
-                                      .map(
-                                        (m) => Chip(
-                                          label: Text(
-                                            m,
-                                            style: theme.textTheme.bodySmall,
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Aprobar: ${_getOportunidadLabel(review.oportunidadAprobacion)}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: _getOportunidadColor(
+                                              review.oportunidadAprobacion,
+                                            ),
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          backgroundColor: theme
-                                              .colorScheme
-                                              .primary
-                                              .withAlpha((0.1 * 255).toInt()),
-                                        ),
-                                      )
-                                      .toList(),
+                                    ),
+                                  ],
                                 ),
-
-                              if (review.metodosEnsenanza.isNotEmpty)
                                 const SizedBox(height: 12),
+
+                                // Métodos
+                                if (review.metodosEnsenanza.isNotEmpty)
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: review.metodosEnsenanza
+                                        .map(
+                                          (m) => Chip(
+                                            label: Text(
+                                              m,
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            backgroundColor: theme
+                                                .colorScheme
+                                                .primary
+                                                .withAlpha((0.1 * 255).toInt()),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+
+                                if (review.metodosEnsenanza.isNotEmpty)
+                                  const SizedBox(height: 12),
+                              ] else ...[
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.lock_outline,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Detalles bloqueados en plan Gratis',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                              ],
 
                               // Comentario
                               Text(
-                                review.comentario,
+                                _hasFullAccess
+                                    ? review.comentario
+                                    : _truncate(review.comentario),
                                 style: theme.textTheme.bodyMedium,
                               ),
 
-                              if (review.consejo.isNotEmpty) ...[
+                              if (_hasFullAccess &&
+                                  review.consejo.isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 Container(
                                   width: double.infinity,
@@ -500,6 +755,17 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                                   ),
                                 ),
                               ],
+
+                              if (!_hasFullAccess) ...[
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _showPlanSheet,
+                                    child: const Text('desbloquear completo'),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -508,6 +774,20 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                   );
                 },
               ),
+            if (!_hasFullAccess && _profesor.reviews.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: _showPlanSheet,
+                    child: const Text('desbloquear todas las reseñas'),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 40),
           ],
         ),
