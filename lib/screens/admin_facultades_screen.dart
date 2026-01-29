@@ -31,6 +31,9 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
   }
 
   void _agregarFacultad() {
+    if (!_guardSensitiveAction()) {
+      return;
+    }
     if (_nombreFacultadController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ingresa el nombre de la facultad')),
@@ -58,6 +61,9 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
   }
 
   void _agregarEscuela() {
+    if (!_guardSensitiveAction()) {
+      return;
+    }
     if (_selectedFacultadId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('selecciona una facultad primero')),
@@ -275,5 +281,25 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
         ),
       ),
     );
+  }
+
+  bool _guardSensitiveAction() {
+    if (_dataService.isSensitiveActionsLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_dataService.sensitiveActionsLockMessage)),
+      );
+      return false;
+    }
+
+    if (!_dataService.canManageFacultades) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No tienes permisos para administrar facultades'),
+        ),
+      );
+      return false;
+    }
+
+    return true;
   }
 }

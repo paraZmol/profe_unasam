@@ -2,25 +2,28 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Colores Primarios - Paleta Profesional
-  static const Color _primaryColor = Color(
-    0xFF1F4788,
-  ); // Azul profesional oscuro
-  static const Color _primaryVariant = Color(
-    0xFF2E5C9F,
-  ); // Azul profesional medio
-  static const Color _secondaryColor = Color(0xFFE8531B); // Naranja profesional
-  static const Color _secondaryVariant = Color(0xFFFF7043); // Naranja claro
+  static const Color _primaryColor = Color(0xFF1E5BD6); // Azul principal
+  static const Color _primaryVariant = Color(0xFF1747A6); // Azul profundo
+  static const Color _secondaryColor = Color(0xFF00B3A4); // Teal profesional
+  static const Color _secondaryVariant = Color(0xFF33C5BA); // Teal claro
 
   // Colores Neutros
-  static const Color _darkBackground = Color(0xFF121212);
-  static const Color _darkSurface = Color(0xFF1E1E1E);
-  static const Color _lightBackground = Color(0xFFFAFAFA);
+  static const Color _darkBackground = Color(0xFF0B0F14);
+  static const Color _darkSurface = Color(0xFF151A22);
+  static const Color _lightBackground = Color(0xFFF6F8FB);
   static const Color _lightSurface = Color(0xFFFFFFFF);
 
   // Colores de Texto
-  static const Color _darkText = Color(0xFF1F1F1F);
-  static const Color _lightText = Color(0xFFEBEBEB);
-  static const Color _hintText = Color(0xFF999999);
+  static const Color _darkText = Color(0xFF1B2430);
+  static const Color _lightText = Color(0xFFE8EDF2);
+  static const Color _hintTextLight = Color(0xFF5E6B7A);
+  static const Color _hintTextDark = Color(0xFFA7B2C2);
+
+  // Colores auxiliares
+  static const Color _outlineLight = Color(0xFFD0D7E2);
+  static const Color _outlineDark = Color(0xFF2C3440);
+  static const Color _surfaceVariantLight = Color(0xFFEEF2F7);
+  static const Color _surfaceVariantDark = Color(0xFF1C222B);
 
   // Colores de Acento
   static const Color _accentGreen = Color(0xFF4CAF50); // Verde de éxito
@@ -44,6 +47,13 @@ class AppTheme {
       onSecondaryContainer: Colors.white,
       surface: _lightSurface,
       onSurface: _darkText,
+      background: _lightBackground,
+      onBackground: _darkText,
+      surfaceVariant: _surfaceVariantLight,
+      onSurfaceVariant: _hintTextLight,
+      outline: _outlineLight,
+      error: _accentRed,
+      onError: Colors.white,
     ),
     scaffoldBackgroundColor: _lightBackground,
     appBarTheme: const AppBarTheme(
@@ -86,23 +96,25 @@ class AppTheme {
       ),
       bodyLarge: TextStyle(fontSize: 16, color: _darkText),
       bodyMedium: TextStyle(fontSize: 14, color: _darkText),
-      bodySmall: TextStyle(fontSize: 12, color: _hintText),
+      bodySmall: TextStyle(fontSize: 12, color: _hintTextLight),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Color(0xFFF5F5F5),
+      fillColor: _surfaceVariantLight,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD), width: 1),
+        borderSide: const BorderSide(color: _outlineLight, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD), width: 1),
+        borderSide: const BorderSide(color: _outlineLight, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: _primaryColor, width: 2),
       ),
+      hintStyle: const TextStyle(color: _hintTextLight),
+      labelStyle: const TextStyle(color: _hintTextLight),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     ),
     snackBarTheme: const SnackBarThemeData(
@@ -128,6 +140,13 @@ class AppTheme {
       onSecondaryContainer: Colors.white,
       surface: _darkSurface,
       onSurface: _lightText,
+      background: _darkBackground,
+      onBackground: _lightText,
+      surfaceVariant: _surfaceVariantDark,
+      onSurfaceVariant: _hintTextDark,
+      outline: _outlineDark,
+      error: _accentRed,
+      onError: Colors.white,
     ),
     scaffoldBackgroundColor: _darkBackground,
     appBarTheme: const AppBarTheme(
@@ -170,23 +189,25 @@ class AppTheme {
       ),
       bodyLarge: TextStyle(fontSize: 16, color: _lightText),
       bodyMedium: TextStyle(fontSize: 14, color: _lightText),
-      bodySmall: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+      bodySmall: TextStyle(fontSize: 12, color: _hintTextDark),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF2A2A2A),
+      fillColor: _surfaceVariantDark,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF444444), width: 1),
+        borderSide: const BorderSide(color: _outlineDark, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF444444), width: 1),
+        borderSide: const BorderSide(color: _outlineDark, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: _primaryVariant, width: 2),
       ),
+      hintStyle: const TextStyle(color: _hintTextDark),
+      labelStyle: const TextStyle(color: _hintTextDark),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     ),
     snackBarTheme: const SnackBarThemeData(

@@ -5,10 +5,12 @@ import 'package:profe_unasam/screens/add_profesor_screen.dart';
 import 'package:profe_unasam/screens/admin_facultades_screen.dart';
 import 'package:profe_unasam/screens/notifications_screen.dart';
 import 'package:profe_unasam/screens/profile_screen.dart';
+import 'package:profe_unasam/screens/suggest_profesor_screen.dart';
+import 'package:profe_unasam/screens/suggestions_screen.dart';
+import 'package:profe_unasam/screens/users_management_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/widgets/profesor_card.dart';
 import 'package:profe_unasam/widgets/search_filter_bar.dart';
-import 'package:profe_unasam/models/user_plan.dart';
 import 'package:profe_unasam/models/user_role.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -54,144 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchQuery = _searchController.text.toLowerCase();
       _filteredProfesores = _applyFilters();
     });
-  }
-
-  Future<void> _showPlanSheet() async {
-    final theme = Theme.of(context);
-    final currentPlan = _dataService.getPlan();
-    await showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tu plan actual: ${currentPlan.label}',
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.lock_open),
-                  title: const Text('Básico'),
-                  subtitle: const Text('Vista resumida y reseñas limitadas'),
-                  trailing: currentPlan == UserPlan.free
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.setPlanFree();
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.timer),
-                  title: const Text('Iniciar prueba (7 días)'),
-                  subtitle: const Text('Acceso completo temporal'),
-                  trailing: currentPlan == UserPlan.trial
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.startTrial(days: 7);
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.workspace_premium),
-                  title: const Text('Premium'),
-                  subtitle: const Text('Acceso completo sin límites'),
-                  trailing: currentPlan == UserPlan.premium
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.setPlanPremium();
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showRoleSheet() async {
-    final theme = Theme.of(context);
-    final currentRole = _dataService.getRole();
-    await showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Rol actual: ${currentRole.label}',
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings),
-                  title: const Text('Administrador'),
-                  subtitle: const Text('Control total del sistema'),
-                  trailing: currentRole == UserRole.admin
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.setRole(UserRole.admin);
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.gavel),
-                  title: const Text('Moderador'),
-                  subtitle: const Text('Puede agregar profesores'),
-                  trailing: currentRole == UserRole.moderator
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.setRole(UserRole.moderator);
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.person),
-                  title: const Text('Usuario'),
-                  subtitle: const Text('Acceso estándar'),
-                  trailing: currentRole == UserRole.user
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _dataService.setRole(UserRole.user);
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   List<Profesor> _applyFilters() {
@@ -252,6 +116,55 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('DocIn'),
         elevation: 0,
         actions: [
+          // Botón para sugerir profesor
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'sugerir profesor',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SuggestProfesorScreen(),
+                ),
+              ).then((_) => setState(() {}));
+            },
+          ),
+          // Botón para ver sugerencias (solo moderadores/admin)
+          if (_dataService.getRole() != UserRole.user)
+            IconButton(
+              icon: const Icon(Icons.check_circle_outline),
+              tooltip: 'sugerencias pendientes',
+              onPressed: () {
+                if (_dataService.isSensitiveActionsLocked) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_dataService.sensitiveActionsLockMessage),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SuggestionsScreen(),
+                  ),
+                ).then((_) => setState(() {}));
+              },
+            ),
+          // Botón para gestionar usuarios (solo admin)
+          if (_dataService.getRole() == UserRole.admin)
+            IconButton(
+              icon: const Icon(Icons.people_outline),
+              tooltip: 'gestionar usuarios',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UsersManagementScreen(),
+                  ),
+                ).then((_) => setState(() {}));
+              },
+            ),
           IconButton(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -290,11 +203,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.workspace_premium),
-            tooltip: 'plan',
-            onPressed: _showPlanSheet,
-          ),
-          IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: 'perfil',
             onPressed: () {
@@ -304,39 +212,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ).then((_) => setState(() {}));
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings),
-            tooltip: 'rol',
-            onPressed: _showRoleSheet,
-          ),
-          // boton para administrar facultades
-          IconButton(
-            icon: const Icon(Icons.school),
-            tooltip: 'administrar facultades y escuelas',
-            onPressed: () {
-              if (!_dataService.canManageFacultades) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Solo administradores pueden gestionar facultades',
+          // boton para administrar facultades (admin y moderador)
+          if (_dataService.canManageFacultades)
+            IconButton(
+              icon: const Icon(Icons.school),
+              tooltip: 'administrar facultades y escuelas',
+              onPressed: () {
+                if (_dataService.isSensitiveActionsLocked) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_dataService.sensitiveActionsLockMessage),
                     ),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminFacultadesScreen(),
                   ),
-                );
-                return;
-              }
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AdminFacultadesScreen(),
-                ),
-              ).then((_) {
-                setState(() {
-                  _inicializarDatos();
+                ).then((_) {
+                  setState(() {
+                    _inicializarDatos();
+                  });
                 });
-              });
-            },
-          ),
+              },
+            ),
           // boton para cambiar tema
           IconButton(
             icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
@@ -389,6 +290,12 @@ class _HomeScreenState extends State<HomeScreen> {
       // boton flotante para agregar nuevo profesor
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
+          if (_dataService.isSensitiveActionsLocked) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(_dataService.sensitiveActionsLockMessage)),
+            );
+            return;
+          }
           if (!_dataService.canAddProfesor) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

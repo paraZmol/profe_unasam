@@ -43,6 +43,9 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
   }
 
   void _guardarProfesor() {
+    if (!_guardSensitiveAction()) {
+      return;
+    }
     if (_formKey.currentState!.validate() &&
         _selectedFacultad != null &&
         _selectedEscuela != null) {
@@ -241,11 +244,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        foregroundColor: Colors.black87,
-                      ),
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('cancelar'),
                     ),
@@ -264,5 +263,27 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
         ),
       ),
     );
+  }
+
+  bool _guardSensitiveAction() {
+    if (_dataService.isSensitiveActionsLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_dataService.sensitiveActionsLockMessage)),
+      );
+      return false;
+    }
+
+    if (!_dataService.canAddProfesor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Solo administradores o moderadores pueden agregar profesores',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    return true;
   }
 }

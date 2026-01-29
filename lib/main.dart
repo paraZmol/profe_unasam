@@ -27,6 +27,21 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      routes: {
+        '/login': (context) => LoginScreen(
+          onLogin: () {
+            setState(() {});
+          },
+        ),
+        '/home': (context) => HomeScreen(
+          onThemeToggle: (isDark) {
+            setState(() {
+              _isDarkMode = isDark;
+            });
+          },
+          isDarkMode: _isDarkMode,
+        ),
+      },
       home: _dataService.isLoggedIn
           ? HomeScreen(
               onThemeToggle: (isDark) {
