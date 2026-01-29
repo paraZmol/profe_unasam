@@ -75,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 ListTile(
                   leading: const Icon(Icons.lock_open),
-                  title: const Text('Gratis'),
+                  title: const Text('Básico'),
                   subtitle: const Text('Vista resumida y reseñas limitadas'),
                   trailing: currentPlan == UserPlan.free
                       ? const Icon(Icons.check)
@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profesores UNASAM (${currentPlan.label})'),
+        title: const Text('DocIn'),
         elevation: 0,
         actions: [
           IconButton(

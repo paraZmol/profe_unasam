@@ -117,7 +117,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 const SizedBox(height: 12),
                 ListTile(
                   leading: const Icon(Icons.lock_open),
-                  title: const Text('Gratis'),
+                  title: const Text('Básico'),
                   subtitle: const Text('Vista resumida y reseñas limitadas'),
                   trailing: currentPlan == UserPlan.free
                       ? const Icon(Icons.check)
@@ -705,7 +705,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Detalles bloqueados en plan Gratis',
+                                      'Detalles bloqueados en plan Básico',
                                       style: theme.textTheme.bodySmall,
                                     ),
                                   ],
