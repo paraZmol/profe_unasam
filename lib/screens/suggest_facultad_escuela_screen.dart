@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/services/data_service.dart';
+import 'package:profe_unasam/widgets/loading_dots.dart';
 
 class SuggestFacultadEscuelaScreen extends StatefulWidget {
   const SuggestFacultadEscuelaScreen({super.key});
@@ -16,6 +17,7 @@ class _SuggestFacultadEscuelaScreenState
   final _dataService = DataService();
   final _nombreController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isSubmitting = false;
 
   SuggestionType _type = SuggestionType.facultad;
   String? _selectedFacultadId;
@@ -28,6 +30,7 @@ class _SuggestFacultadEscuelaScreenState
 
   void _submitSuggestion() {
     if (!_formKey.currentState!.validate()) return;
+    if (_isSubmitting) return;
 
     final data = <String, dynamic>{'nombre': _nombreController.text.trim()};
 
@@ -41,12 +44,19 @@ class _SuggestFacultadEscuelaScreenState
       data['facultadId'] = _selectedFacultadId;
     }
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
     try {
       _dataService.createSuggestion(type: _type, data: data);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      setState(() {
+        _isSubmitting = false;
+      });
       return;
     }
 
@@ -157,8 +167,10 @@ class _SuggestFacultadEscuelaScreenState
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submitSuggestion,
-                  child: const Text('Enviar Sugerencia'),
+                  onPressed: _isSubmitting ? null : _submitSuggestion,
+                  child: _isSubmitting
+                      ? const LoadingDots()
+                      : const Text('Enviar Sugerencia'),
                 ),
               ),
               const SizedBox(height: 16),

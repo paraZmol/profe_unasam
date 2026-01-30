@@ -1,50 +1,62 @@
 # DocIn
 
-DocIn es una app móvil para estudiantes universitarios que desean conocer
-experiencias reales sobre docentes antes de matricularse o llevar un curso.
+DocIn es una aplicación móvil para estudiantes universitarios que centraliza
+opiniones y métricas de docentes, ayudando a tomar mejores decisiones antes de
+matricularse o elegir cursos.
 
-## Funcionalidades principales
+## Funcionalidades destacadas
 
-- Listado y búsqueda de docentes por nombre o curso.
+- Búsqueda de docentes por nombre y por cursos.
 - Filtros por curso y ordenamiento por calificación/recencia.
-- Detalle del docente con calificación y reseñas.
-- Planes locales: Básico, Prueba y Premium.
-- Bloqueo de información avanzada en plan Básico.
-- Seguimiento de docente/curso (solo con acceso completo).
-- Notificaciones in-app cuando hay nuevas reseñas seguidas.
+- Perfil del docente con calificación, reseñas y métodos de enseñanza.
+- Roles y permisos (usuario, moderador, administrador).
+- Sugerencias de docentes, facultades y escuelas con aprobación.
+- Moderación de comentarios con motivo, votación y ocultamiento automático.
+- Notificaciones in-app para eventos de moderación y actividad relevante.
+- Seguimiento de docente y cursos (local).
+- UI adaptada a modo claro/oscuro con buen contraste.
 
-## Estado actual
+## Estado del proyecto
 
-- La data es local (mock) y no requiere backend.
-- Listo para migrar a Firebase o API propia en el futuro.
+- Datos locales (mock) con lógica completa en `DataService`.
+- Sin backend actualmente; preparado para migración a Firebase.
 
-## Estructura del proyecto
+## Arquitectura y carpetas
 
-- lib/main.dart: entrada principal.
+- lib/main.dart: entrada y rutas.
 - lib/screens: pantallas principales.
 - lib/models: modelos de datos.
-- lib/services: capa local de datos.
-- lib/data: data mock.
+- lib/services: lógica de negocio y data local.
+- lib/data: dataset mock.
 - lib/widgets: componentes reutilizables.
+- lib/theme: configuración de tema.
+- lib/utils: utilitarios (observadores de rutas, etc.).
 
-## Cómo ejecutar
+## Requisitos
 
-1. Instala Flutter y configura el SDK.
-2. Ejecuta en la raíz del proyecto:
+- Flutter SDK instalado
+- Dispositivo/emulador Android o iOS
 
-```bash
-flutter pub get
-flutter run
-```
+## Ejecución
 
-## Notas
+1. Instala dependencias:
+	- flutter pub get
+2. Ejecuta:
+	- flutter run
 
-- Las notificaciones son locales (in-app), no push.
-- Los planes son simulados y no requieren pago real.
+## Notas importantes
 
-## Próximos pasos sugeridos
+- Notificaciones son locales (in-app), no push.
+- Roles y permisos se validan en `DataService` y en UI.
+- Los datos no persisten entre reinicios (mock local).
 
-- Persistencia local (SharedPreferences/Hive).
-- Autenticación de usuarios.
-- Backend/Firebase para reseñas y notificaciones push.
-- Moderación y reportes de reseñas.
+## Roadmap sugerido
+
+- Migración a Firebase (Auth + Firestore + Storage).
+- Persistencia local (Hive/SharedPreferences).
+- Sincronización en tiempo real de reseñas y moderación.
+- Historial de cambios y auditoría de moderación.
+
+## Licencia
+
+Uso interno/educativo. Ajustar según la política del proyecto.

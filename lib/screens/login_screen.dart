@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:profe_unasam/services/data_service.dart';
+import 'package:profe_unasam/widgets/loading_dots.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onLogin;
@@ -242,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ? _handleSignUp
                                       : _handleSignIn),
                             child: _isLoading
-                                ? const CircularProgressIndicator()
+                                ? const LoadingDots()
                                 : Text(
                                     _isSigningUp
                                         ? 'Crear Cuenta'

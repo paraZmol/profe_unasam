@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/services/data_service.dart';
+import 'package:profe_unasam/widgets/loading_dots.dart';
 
 class SuggestProfesorScreen extends StatefulWidget {
   const SuggestProfesorScreen({super.key});
@@ -18,6 +19,7 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedFacultadId;
   String? _selectedEscuelaId;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -29,6 +31,7 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
 
   void _submitSuggestion() {
     if (!_formKey.currentState!.validate()) return;
+    if (_isSubmitting) return;
 
     final facultades = _dataService.getFacultades();
     if (facultades.isNotEmpty) {
@@ -46,6 +49,10 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
         .where((c) => c.isNotEmpty)
         .toList();
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
     try {
       _dataService.createSuggestion(
         type: SuggestionType.profesor,
@@ -61,6 +68,9 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      setState(() {
+        _isSubmitting = false;
+      });
       return;
     }
 
@@ -213,8 +223,10 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submitSuggestion,
-                  child: const Text('Enviar Sugerencia'),
+                  onPressed: _isSubmitting ? null : _submitSuggestion,
+                  child: _isSubmitting
+                      ? const LoadingDots()
+                      : const Text('Enviar Sugerencia'),
                 ),
               ),
               const SizedBox(height: 16),

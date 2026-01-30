@@ -35,6 +35,20 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
     'Trabajos en grupo',
     'Laboratorio',
     'Resolución de problemas',
+    'Aprendizaje basado en proyectos',
+    'Aprendizaje basado en problemas',
+    'Estudios de caso',
+    'Debates en clase',
+    'Exposiciones',
+    'Aula invertida',
+    'Simulaciones',
+    'Talleres',
+    'Tutorías',
+    'Lecturas guiadas',
+    'Uso de TIC/recursos digitales',
+    'Evaluaciones continuas',
+    'Quizzes cortos',
+    'Aprendizaje colaborativo',
   ];
 
   @override
