@@ -13,6 +13,7 @@ import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/widgets/profesor_card.dart';
 import 'package:profe_unasam/widgets/search_filter_bar.dart';
 import 'package:profe_unasam/models/user_role.dart';
+import 'package:profe_unasam/utils/route_observer.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(bool)? onThemeToggle;
@@ -24,7 +25,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   final TextEditingController _searchController = TextEditingController();
   final _dataService = DataService();
 
@@ -42,9 +43,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    routeObserver.unsubscribe(this);
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _inicializarDatos();
   }
 
   void _inicializarDatos() {
