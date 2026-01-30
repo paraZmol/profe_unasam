@@ -289,6 +289,30 @@ class DataService {
           reviews: [],
         );
         _profesores.add(profesor);
+      } else if (suggestion.type == SuggestionType.facultad) {
+        final facultad = Facultad(
+          id:
+              suggestion.data['id'] ??
+              'f${DateTime.now().millisecondsSinceEpoch}',
+          nombre: suggestion.data['nombre'] ?? '',
+          escuelas: [],
+        );
+        _facultades.add(facultad);
+      } else if (suggestion.type == SuggestionType.escuela) {
+        final facultadId = suggestion.data['facultadId'] ?? '';
+        if (facultadId.isEmpty) {
+          throw Exception(
+            'La sugerencia de escuela no tiene facultad asignada',
+          );
+        }
+        final escuela = Escuela(
+          id:
+              suggestion.data['id'] ??
+              'e${DateTime.now().millisecondsSinceEpoch}',
+          nombre: suggestion.data['nombre'] ?? '',
+          facultadId: facultadId,
+        );
+        agregarEscuela(facultadId, escuela);
       }
       _suggestions[index] = Suggestion(
         id: suggestion.id,

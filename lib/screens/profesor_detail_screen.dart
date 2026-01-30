@@ -145,7 +145,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 child: Text(
                   '"${profesor.apodo}"',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+                    color: theme.colorScheme.secondary,
                     fontStyle: FontStyle.italic,
                   ),
                 ),

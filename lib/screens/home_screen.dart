@@ -1,10 +1,10 @@
 // lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
-import 'package:profe_unasam/screens/add_profesor_screen.dart';
 import 'package:profe_unasam/screens/admin_facultades_screen.dart';
 import 'package:profe_unasam/screens/notifications_screen.dart';
 import 'package:profe_unasam/screens/profile_screen.dart';
+import 'package:profe_unasam/screens/suggest_facultad_escuela_screen.dart';
 import 'package:profe_unasam/screens/suggest_profesor_screen.dart';
 import 'package:profe_unasam/screens/suggestions_screen.dart';
 import 'package:profe_unasam/screens/users_management_screen.dart';
@@ -116,55 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('DocIn'),
         elevation: 0,
         actions: [
-          // Botón para sugerir profesor
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'sugerir profesor',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SuggestProfesorScreen(),
-                ),
-              ).then((_) => setState(() {}));
-            },
-          ),
-          // Botón para ver sugerencias (solo moderadores/admin)
-          if (_dataService.getRole() != UserRole.user)
-            IconButton(
-              icon: const Icon(Icons.check_circle_outline),
-              tooltip: 'sugerencias pendientes',
-              onPressed: () {
-                if (_dataService.isSensitiveActionsLocked) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_dataService.sensitiveActionsLockMessage),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SuggestionsScreen(),
-                  ),
-                ).then((_) => setState(() {}));
-              },
-            ),
-          // Botón para gestionar usuarios (solo admin)
-          if (_dataService.getRole() == UserRole.admin)
-            IconButton(
-              icon: const Icon(Icons.people_outline),
-              tooltip: 'gestionar usuarios',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const UsersManagementScreen(),
-                  ),
-                ).then((_) => setState(() {}));
-              },
-            ),
           IconButton(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -212,37 +163,150 @@ class _HomeScreenState extends State<HomeScreen> {
               ).then((_) => setState(() {}));
             },
           ),
-          // boton para administrar facultades (admin y moderador)
-          if (_dataService.canManageFacultades)
-            IconButton(
-              icon: const Icon(Icons.school),
-              tooltip: 'administrar facultades y escuelas',
-              onPressed: () {
-                if (_dataService.isSensitiveActionsLocked) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_dataService.sensitiveActionsLockMessage),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminFacultadesScreen(),
-                  ),
-                ).then((_) {
-                  setState(() {
-                    _inicializarDatos();
-                  });
-                });
-              },
-            ),
           // boton para cambiar tema
           IconButton(
             icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: () {
               widget.onThemeToggle?.call(!widget.isDarkMode);
+            },
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'más opciones',
+            onSelected: (value) {
+              switch (value) {
+                case 'suggest':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SuggestProfesorScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                  break;
+                case 'suggest_faculty':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const SuggestFacultadEscuelaScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                  break;
+                case 'pending':
+                  if (_dataService.isSensitiveActionsLocked) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_dataService.sensitiveActionsLockMessage),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SuggestionsScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                  break;
+                case 'users':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UsersManagementScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                  break;
+                case 'faculties':
+                  if (_dataService.isSensitiveActionsLocked) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_dataService.sensitiveActionsLockMessage),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminFacultadesScreen(),
+                    ),
+                  ).then((_) {
+                    setState(() {
+                      _inicializarDatos();
+                    });
+                  });
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              final items = <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'suggest',
+                  child: Row(
+                    children: [
+                      Icon(Icons.add_circle_outline),
+                      SizedBox(width: 8),
+                      Text('Sugerir profesor'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'suggest_faculty',
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_balance_outlined),
+                      SizedBox(width: 8),
+                      Text('Sugerir facultad/escuela'),
+                    ],
+                  ),
+                ),
+              ];
+
+              if (_dataService.getRole() != UserRole.user) {
+                items.add(
+                  const PopupMenuItem<String>(
+                    value: 'pending',
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle_outline),
+                        SizedBox(width: 8),
+                        Text('Sugerencias pendientes'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (_dataService.getRole() == UserRole.admin) {
+                items.add(
+                  const PopupMenuItem<String>(
+                    value: 'users',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline),
+                        SizedBox(width: 8),
+                        Text('Gestionar usuarios'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (_dataService.canManageFacultades) {
+                items.add(
+                  const PopupMenuItem<String>(
+                    value: 'faculties',
+                    child: Row(
+                      children: [
+                        Icon(Icons.school),
+                        SizedBox(width: 8),
+                        Text('Administrar facultades'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return items;
             },
           ),
         ],
@@ -287,42 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // boton flotante para agregar nuevo profesor
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (_dataService.isSensitiveActionsLocked) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(_dataService.sensitiveActionsLockMessage)),
-            );
-            return;
-          }
-          if (!_dataService.canAddProfesor) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Solo administradores o moderadores pueden agregar',
-                ),
-              ),
-            );
-            return;
-          }
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddProfesorScreen(
-                onProfesorAdded: (profesor) {
-                  setState(() {
-                    _inicializarDatos();
-                  });
-                },
-              ),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('agregar profesor'),
-      ),
+      // boton flotante removido
     );
   }
 

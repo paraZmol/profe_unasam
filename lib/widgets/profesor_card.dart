@@ -70,7 +70,7 @@ class ProfesorCard extends StatelessWidget {
                         child: Text(
                           '"${profesor.apodo}"',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
+                            color: theme.colorScheme.secondary,
                             fontStyle: FontStyle.italic,
                           ),
                         ),

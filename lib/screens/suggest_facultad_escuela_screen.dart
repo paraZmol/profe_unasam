@@ -3,59 +3,49 @@ import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/services/data_service.dart';
 
-class SuggestProfesorScreen extends StatefulWidget {
-  const SuggestProfesorScreen({super.key});
+class SuggestFacultadEscuelaScreen extends StatefulWidget {
+  const SuggestFacultadEscuelaScreen({super.key});
 
   @override
-  State<SuggestProfesorScreen> createState() => _SuggestProfesorScreenState();
+  State<SuggestFacultadEscuelaScreen> createState() =>
+      _SuggestFacultadEscuelaScreenState();
 }
 
-class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
+class _SuggestFacultadEscuelaScreenState
+    extends State<SuggestFacultadEscuelaScreen> {
   final _dataService = DataService();
   final _nombreController = TextEditingController();
-  final _cursoController = TextEditingController();
-  final _apodoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  SuggestionType _type = SuggestionType.facultad;
   String? _selectedFacultadId;
-  String? _selectedEscuelaId;
 
   @override
   void dispose() {
     _nombreController.dispose();
-    _cursoController.dispose();
-    _apodoController.dispose();
     super.dispose();
   }
 
   void _submitSuggestion() {
     if (!_formKey.currentState!.validate()) return;
 
-    final facultades = _dataService.getFacultades();
-    if (facultades.isNotEmpty) {
-      if (_selectedFacultadId == null || _selectedEscuelaId == null) {
+    final data = <String, dynamic>{'nombre': _nombreController.text.trim()};
+
+    if (_type == SuggestionType.escuela) {
+      if (_selectedFacultadId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Selecciona facultad y escuela')),
+          const SnackBar(content: Text('Selecciona una facultad')),
         );
         return;
       }
+      data['facultadId'] = _selectedFacultadId;
     }
 
-    _dataService.createSuggestion(
-      type: SuggestionType.profesor,
-      data: {
-        'nombre': _nombreController.text.trim(),
-        'curso': _cursoController.text.trim(),
-        'apodo': _apodoController.text.trim(),
-        if (_selectedFacultadId != null) 'facultadId': _selectedFacultadId,
-        if (_selectedEscuelaId != null) 'escuelaId': _selectedEscuelaId,
-      },
-    );
+    _dataService.createSuggestion(type: _type, data: data);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Gracias por tu sugerencia. Será validada pronto.'),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Gracias por tu sugerencia.')));
 
     Navigator.of(context).pop();
   }
@@ -64,12 +54,9 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final facultades = _dataService.getFacultades();
-    final escuelas = _selectedFacultadId != null
-        ? (_dataService.getFacultadById(_selectedFacultadId!)?.escuelas ?? [])
-        : [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sugerir Profesor')),
+      appBar: AppBar(title: const Text('Sugerir Facultad/Escuela')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -80,16 +67,40 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
               Text('Ayúdanos a mejorar', style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
               Text(
-                'Sugiere un profesor que deberíamos añadir a DocIn',
+                'Sugiere una facultad o escuela para DocIn',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 24),
+              SegmentedButton<SuggestionType>(
+                segments: const [
+                  ButtonSegment(
+                    value: SuggestionType.facultad,
+                    label: Text('Facultad'),
+                  ),
+                  ButtonSegment(
+                    value: SuggestionType.escuela,
+                    label: Text('Escuela'),
+                  ),
+                ],
+                selected: {_type},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _type = selection.first;
+                    if (_type == SuggestionType.facultad) {
+                      _selectedFacultadId = null;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _nombreController,
                 decoration: InputDecoration(
-                  labelText: 'Nombre del Profesor *',
+                  labelText: _type == SuggestionType.facultad
+                      ? 'Nombre de la Facultad *'
+                      : 'Nombre de la Escuela *',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -99,31 +110,12 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
                     return 'El nombre es requerido';
                   }
                   if (value.trim().length < 3) {
-                    return 'El nombre debe tener al menos 3 caracteres';
+                    return 'Mínimo 3 caracteres';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _cursoController,
-                decoration: InputDecoration(
-                  labelText: 'Curso / Materia *',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'El curso es requerido';
-                  }
-                  if (value.trim().length < 3) {
-                    return 'El curso debe tener al menos 3 caracteres';
-                  }
-                  return null;
-                },
-              ),
-              if (facultades.isNotEmpty) ...[
+              if (_type == SuggestionType.escuela) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -148,54 +140,12 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
                       onChanged: (value) {
                         setState(() {
                           _selectedFacultadId = value;
-                          _selectedEscuelaId = null;
                         });
                       },
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (_selectedFacultadId != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: theme.dividerColor),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedEscuelaId,
-                        isExpanded: true,
-                        hint: const Text('Selecciona escuela'),
-                        items: escuelas
-                            .map(
-                              (e) => DropdownMenuItem<String>(
-                                value: e.id,
-                                child: Text(e.nombre),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedEscuelaId = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
               ],
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _apodoController,
-                decoration: InputDecoration(
-                  labelText: 'Apodo o sobrenombre (opcional)',
-                  hintText: 'Ej: "El profesor strict"',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
