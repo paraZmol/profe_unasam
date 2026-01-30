@@ -4,6 +4,8 @@ class AppNotification {
   final String body;
   final DateTime createdAt;
   final bool isRead;
+  final String? actionType;
+  final String? actionId;
 
   AppNotification({
     required this.id,
@@ -11,6 +13,8 @@ class AppNotification {
     required this.body,
     required this.createdAt,
     this.isRead = false,
+    this.actionType,
+    this.actionId,
   });
 
   AppNotification copyWith({
@@ -19,6 +23,8 @@ class AppNotification {
     String? body,
     DateTime? createdAt,
     bool? isRead,
+    String? actionType,
+    String? actionId,
   }) {
     return AppNotification(
       id: id ?? this.id,
@@ -26,6 +32,8 @@ class AppNotification {
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       isRead: isRead ?? this.isRead,
+      actionType: actionType ?? this.actionType,
+      actionId: actionId ?? this.actionId,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:profe_unasam/screens/home_screen.dart';
 import 'package:profe_unasam/screens/login_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
+import 'package:profe_unasam/utils/route_observer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,6 +28,7 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      navigatorObservers: [routeObserver],
       routes: {
         '/login': (context) => LoginScreen(
           onLogin: () {

@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:profe_unasam/data/mock_data.dart';
 import 'package:profe_unasam/models/app_notification.dart';
 import 'package:profe_unasam/models/comment_model.dart';
@@ -9,6 +11,7 @@ import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/models/suggestion_model.dart';
+import 'package:profe_unasam/models/review_flag.dart';
 
 class DataService {
   static final DataService _instance = DataService._internal();
@@ -20,6 +23,9 @@ class DataService {
   UserRole _role = UserRole.admin;
   AppUser? _currentUser;
   final List<Suggestion> _suggestions = [];
+  final List<ReviewFlag> _reviewFlags = [];
+  final Set<String> _hiddenReviewIds = {};
+  final ValueNotifier<int> _moderationNotifier = ValueNotifier<int>(0);
   final Map<String, AppUser> _allUsers = {};
   final Map<String, UserRole> _userRoles = {}; // Roles por usuario
   final Map<String, UserRole> _baseRoles = {}; // Rol base/asignado por admin
@@ -292,6 +298,25 @@ class DataService {
     _allUsers[user.id] = user;
   }
 
+  Profesor? getProfesorById(String profesorId) {
+    try {
+      return _profesores.firstWhere((p) => p.id == profesorId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Review? getReviewById(String reviewId) {
+    for (final profesor in _profesores) {
+      for (final review in profesor.reviews) {
+        if (review.id == reviewId) {
+          return review;
+        }
+      }
+    }
+    return null;
+  }
+
   // ======= Sugerencias =======
   List<Suggestion> getSuggestions({SuggestionStatus? status}) {
     if (status == null) return List.unmodifiable(_suggestions);
@@ -302,7 +327,11 @@ class DataService {
     required SuggestionType type,
     required Map<String, dynamic> data,
   }) {
-    if (_currentUser == null) return;
+    if (_currentUser == null) {
+      throw Exception('Debes iniciar sesión para sugerir');
+    }
+
+    _validateSuggestion(type, data);
     _suggestions.add(
       Suggestion(
         id: 's${DateTime.now().millisecondsSinceEpoch}',
@@ -314,6 +343,84 @@ class DataService {
         data: data,
       ),
     );
+  }
+
+  void _validateSuggestion(SuggestionType type, Map<String, dynamic> data) {
+    String normalize(String value) => value.trim().toLowerCase();
+
+    if (type == SuggestionType.profesor) {
+      final name = normalize(data['nombre'] ?? '');
+      final facultadId = (data['facultadId'] ?? '') as String;
+      final escuelaId = (data['escuelaId'] ?? '') as String;
+
+      if (name.length < 3) {
+        throw Exception('Nombre de docente inválido');
+      }
+
+      final duplicateProfesor = _profesores.any((p) {
+        final sameName = p.nombre.trim().toLowerCase() == name;
+        if (!sameName) return false;
+        if (facultadId.isNotEmpty && p.facultadId != facultadId) return false;
+        if (escuelaId.isNotEmpty && p.escuelaId != escuelaId) return false;
+        return true;
+      });
+
+      if (duplicateProfesor) {
+        throw Exception('El docente ya existe');
+      }
+
+      final duplicateSuggestion = _suggestions.any((s) {
+        if (s.status != SuggestionStatus.pending) return false;
+        if (s.type != SuggestionType.profesor) return false;
+        final sName = normalize(s.data['nombre'] ?? '');
+        if (sName != name) return false;
+        if (facultadId.isNotEmpty && s.data['facultadId'] != facultadId) {
+          return false;
+        }
+        if (escuelaId.isNotEmpty && s.data['escuelaId'] != escuelaId) {
+          return false;
+        }
+        return true;
+      });
+
+      if (duplicateSuggestion) {
+        throw Exception('Ya existe una sugerencia pendiente para este docente');
+      }
+    }
+
+    if (type == SuggestionType.facultad) {
+      final name = normalize(data['nombre'] ?? '');
+      if (name.length < 3) {
+        throw Exception('Nombre de facultad inválido');
+      }
+      final exists = _facultades.any(
+        (f) => f.nombre.trim().toLowerCase() == name,
+      );
+      if (exists) {
+        throw Exception('La facultad ya existe');
+      }
+    }
+
+    if (type == SuggestionType.escuela) {
+      final name = normalize(data['nombre'] ?? '');
+      final facultadId = (data['facultadId'] ?? '') as String;
+      if (name.length < 3) {
+        throw Exception('Nombre de escuela inválido');
+      }
+      if (facultadId.isEmpty) {
+        throw Exception('Selecciona una facultad');
+      }
+      final facultad = getFacultadById(facultadId);
+      if (facultad == null) {
+        throw Exception('Facultad no encontrada');
+      }
+      final exists = facultad.escuelas.any(
+        (e) => e.nombre.trim().toLowerCase() == name,
+      );
+      if (exists) {
+        throw Exception('La escuela ya existe en esta facultad');
+      }
+    }
   }
 
   void approveSuggestion(String suggestionId) {
@@ -524,6 +631,11 @@ class DataService {
   /// Moderador puede aprobar/rechazar sugerencias de profesores
   bool get canApproveSuggestions =>
       _role == UserRole.moderator || _role == UserRole.admin;
+
+  bool get canModerateComments =>
+      _role == UserRole.moderator || _role == UserRole.admin;
+
+  ValueNotifier<int> get moderationNotifier => _moderationNotifier;
 
   /// Usuario solo usuario, Moderador puede cambiar entre moderador/usuario, Admin puede cambiar entre todos
   /// PERO solo si el usuario está en la lista permitida (admin y moderador originales)
@@ -774,6 +886,164 @@ class DataService {
       return profesor.cursos.first;
     }
     return '${profesor.cursos.first} y otros';
+  }
+
+  // ======= Moderación de comentarios (reviews) =======
+  bool isReviewHidden(String reviewId) => _hiddenReviewIds.contains(reviewId);
+
+  ReviewFlag? getReviewFlagByReviewId(String reviewId) {
+    try {
+      return _reviewFlags.lastWhere((f) => f.reviewId == reviewId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<ReviewFlag> getPendingReviewFlags() {
+    return _reviewFlags
+        .where((f) => f.status == ReviewFlagStatus.pending)
+        .toList();
+  }
+
+  void flagReview({
+    required String reviewId,
+    required String profesorId,
+    required String reason,
+  }) {
+    if (isSensitiveActionsLocked) {
+      throw Exception(sensitiveActionsLockMessage);
+    }
+    if (!canModerateComments) {
+      throw Exception('Solo moderadores o administradores pueden marcar');
+    }
+    if (reason.trim().length < 5) {
+      throw Exception('El motivo debe tener al menos 5 caracteres');
+    }
+    if (_currentUser == null) {
+      throw Exception('Debes iniciar sesión');
+    }
+
+    final existingPending = _reviewFlags.any(
+      (f) => f.reviewId == reviewId && f.status == ReviewFlagStatus.pending,
+    );
+    if (existingPending) {
+      throw Exception('Este comentario ya está en revisión');
+    }
+
+    final id = 'rf${DateTime.now().millisecondsSinceEpoch}';
+    _reviewFlags.add(
+      ReviewFlag(
+        id: id,
+        reviewId: reviewId,
+        profesorId: profesorId,
+        reason: reason.trim(),
+        flaggedByUserId: _currentUser!.id,
+        createdAt: DateTime.now(),
+        moderatorApprovals: <String>{},
+        adminApproved: false,
+        status: ReviewFlagStatus.pending,
+      ),
+    );
+
+    _notifications.insert(
+      0,
+      AppNotification(
+        id: 'n${DateTime.now().millisecondsSinceEpoch}',
+        title: '[Moderación] Comentario marcado',
+        body: 'Se marcó un comentario para revisión.',
+        createdAt: DateTime.now(),
+        actionType: 'review_flag',
+        actionId: id,
+      ),
+    );
+  }
+
+  void approveReviewFlag(String flagId) {
+    if (isSensitiveActionsLocked) {
+      throw Exception(sensitiveActionsLockMessage);
+    }
+    if (!canModerateComments) {
+      throw Exception('Solo moderadores o administradores pueden aprobar');
+    }
+    if (_currentUser == null) {
+      throw Exception('Debes iniciar sesión');
+    }
+
+    final index = _reviewFlags.indexWhere((f) => f.id == flagId);
+    if (index == -1) {
+      throw Exception('Registro de revisión no encontrado');
+    }
+
+    final flag = _reviewFlags[index];
+    if (flag.status != ReviewFlagStatus.pending) {
+      return;
+    }
+
+    var moderatorApprovals = Set<String>.from(flag.moderatorApprovals);
+    var adminApproved = flag.adminApproved;
+
+    if (_role == UserRole.admin) {
+      adminApproved = true;
+    } else if (_role == UserRole.moderator) {
+      moderatorApprovals.add(_currentUser!.id);
+    }
+
+    var status = flag.status;
+    if (adminApproved && moderatorApprovals.isNotEmpty) {
+      status = ReviewFlagStatus.approved;
+      _hiddenReviewIds.add(flag.reviewId);
+      _moderationNotifier.value++;
+
+      _notifications.insert(
+        0,
+        AppNotification(
+          id: 'n${DateTime.now().millisecondsSinceEpoch}',
+          title: '[Moderación] Comentario ocultado',
+          body: 'Se aprobó la ocultación de un comentario.',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      _notifyReviewAuthor(flag.reviewId, flag.reason);
+    }
+
+    _reviewFlags[index] = flag.copyWith(
+      moderatorApprovals: moderatorApprovals,
+      adminApproved: adminApproved,
+      status: status,
+    );
+  }
+
+  void rejectReviewFlag(String flagId) {
+    if (isSensitiveActionsLocked) {
+      throw Exception(sensitiveActionsLockMessage);
+    }
+    if (!canModerateComments) {
+      throw Exception('Solo moderadores o administradores pueden rechazar');
+    }
+    final index = _reviewFlags.indexWhere((f) => f.id == flagId);
+    if (index == -1) {
+      throw Exception('Registro de revisión no encontrado');
+    }
+    final flag = _reviewFlags[index];
+    _reviewFlags[index] = flag.copyWith(status: ReviewFlagStatus.rejected);
+  }
+
+  void _notifyReviewAuthor(String reviewId, String reason) {
+    final review = getReviewById(reviewId);
+    if (review == null || review.userId == null) {
+      return;
+    }
+
+    _notifications.insert(
+      0,
+      AppNotification(
+        id: 'n${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Tu comentario fue ocultado',
+        body: 'Motivo: $reason',
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   // calcular calificacion promedio

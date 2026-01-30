@@ -84,9 +84,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () {
               _dataService.logout();
+              Navigator.of(context).pop();
               // Ir al LoginScreen y limpiar la pila de navegación
               Navigator.of(
                 context,
+                rootNavigator: true,
               ).pushNamedAndRemoveUntil('/login', (route) => false);
             },
             child: const Text('Cerrar sesión'),

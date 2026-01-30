@@ -46,7 +46,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (mounted) {
       if (success) {
+        setState(() {
+          _isLoading = false;
+        });
         widget.onLogin?.call();
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
         setState(() {
           _errorMessage = 'Este email o alias ya está registrado';
@@ -71,7 +77,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (mounted) {
       if (success) {
+        setState(() {
+          _isLoading = false;
+        });
         widget.onLogin?.call();
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
         setState(() {
           _errorMessage = 'Email o contraseña incorrectos';

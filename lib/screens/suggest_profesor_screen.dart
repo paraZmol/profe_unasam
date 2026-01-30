@@ -46,16 +46,23 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
         .where((c) => c.isNotEmpty)
         .toList();
 
-    _dataService.createSuggestion(
-      type: SuggestionType.profesor,
-      data: {
-        'nombre': _nombreController.text.trim(),
-        'cursos': cursos,
-        'apodo': _apodoController.text.trim(),
-        if (_selectedFacultadId != null) 'facultadId': _selectedFacultadId,
-        if (_selectedEscuelaId != null) 'escuelaId': _selectedEscuelaId,
-      },
-    );
+    try {
+      _dataService.createSuggestion(
+        type: SuggestionType.profesor,
+        data: {
+          'nombre': _nombreController.text.trim(),
+          'cursos': cursos,
+          'apodo': _apodoController.text.trim(),
+          if (_selectedFacultadId != null) 'facultadId': _selectedFacultadId,
+          if (_selectedEscuelaId != null) 'escuelaId': _selectedEscuelaId,
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

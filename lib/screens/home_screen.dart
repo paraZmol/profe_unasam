@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/screens/admin_facultades_screen.dart';
+import 'package:profe_unasam/screens/moderation_queue_screen.dart';
 import 'package:profe_unasam/screens/notifications_screen.dart';
 import 'package:profe_unasam/screens/profile_screen.dart';
 import 'package:profe_unasam/screens/suggest_facultad_escuela_screen.dart';
@@ -174,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              ).then((_) => setState(() {}));
+              ).then((_) => _inicializarDatos());
             },
           ),
           // boton para cambiar tema
@@ -253,6 +254,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   });
                   break;
+                case 'moderation':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ModerationQueueScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                  break;
               }
             },
             itemBuilder: (context) {
@@ -303,6 +312,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(Icons.people_outline),
                         SizedBox(width: 8),
                         Text('Gestionar usuarios'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (_dataService.canModerateComments) {
+                items.add(
+                  const PopupMenuItem<String>(
+                    value: 'moderation',
+                    child: Row(
+                      children: [
+                        Icon(Icons.flag_outlined),
+                        SizedBox(width: 8),
+                        Text('Moderación de comentarios'),
                       ],
                     ),
                   ),
@@ -363,7 +387,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: _filteredProfesores.length,
                     itemBuilder: (context, index) {
                       final profesor = _filteredProfesores[index];
-                      return ProfesorCard(profesor: profesor);
+                      return ProfesorCard(
+                        profesor: profesor,
+                        onReturn: _inicializarDatos,
+                      );
                     },
                   ),
           ),

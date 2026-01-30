@@ -41,7 +41,14 @@ class _SuggestFacultadEscuelaScreenState
       data['facultadId'] = _selectedFacultadId;
     }
 
-    _dataService.createSuggestion(type: _type, data: data);
+    try {
+      _dataService.createSuggestion(type: _type, data: data);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return;
+    }
 
     ScaffoldMessenger.of(
       context,

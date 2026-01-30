@@ -9,6 +9,7 @@ enum OportunidadAprobacion {
 
 class Review {
   final String id;
+  final String? userId;
   final String userAlias;
   final String comentario;
   final double puntuacion;
@@ -20,6 +21,7 @@ class Review {
 
   Review({
     required this.id,
+    this.userId,
     required this.userAlias,
     required this.comentario,
     required this.puntuacion,
@@ -33,6 +35,7 @@ class Review {
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
       id: json['id'] as String,
+      userId: json['userId'] as String?,
       userAlias: (json['userAlias'] as String?) ?? 'Anónimo',
       comentario: json['comentario'] as String,
       puntuacion: (json['puntuacion'] as num).toDouble(),
@@ -55,6 +58,7 @@ class Review {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'userAlias': userAlias,
       'comentario': comentario,
       'puntuacion': puntuacion,

@@ -6,8 +6,9 @@ import 'package:profe_unasam/theme/app_theme.dart';
 
 class ProfesorCard extends StatelessWidget {
   final Profesor profesor;
+  final VoidCallback? onReturn;
 
-  const ProfesorCard({super.key, required this.profesor});
+  const ProfesorCard({super.key, required this.profesor, this.onReturn});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +26,7 @@ class ProfesorCard extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => ProfesorDetailScreen(profesor: profesor),
             ),
-          );
+          ).then((_) => onReturn?.call());
         },
         child: Padding(
           padding: const EdgeInsets.all(12.0),
