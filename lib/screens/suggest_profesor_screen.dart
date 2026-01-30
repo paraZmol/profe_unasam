@@ -13,7 +13,7 @@ class SuggestProfesorScreen extends StatefulWidget {
 class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
   final _dataService = DataService();
   final _nombreController = TextEditingController();
-  final _cursoController = TextEditingController();
+  final _cursosController = TextEditingController();
   final _apodoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _selectedFacultadId;
@@ -22,7 +22,7 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
   @override
   void dispose() {
     _nombreController.dispose();
-    _cursoController.dispose();
+    _cursosController.dispose();
     _apodoController.dispose();
     super.dispose();
   }
@@ -40,11 +40,17 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
       }
     }
 
+    final cursos = _cursosController.text
+        .split(',')
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+
     _dataService.createSuggestion(
       type: SuggestionType.profesor,
       data: {
         'nombre': _nombreController.text.trim(),
-        'curso': _cursoController.text.trim(),
+        'cursos': cursos,
         'apodo': _apodoController.text.trim(),
         if (_selectedFacultadId != null) 'facultadId': _selectedFacultadId,
         if (_selectedEscuelaId != null) 'escuelaId': _selectedEscuelaId,
@@ -106,19 +112,19 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _cursoController,
+                controller: _cursosController,
                 decoration: InputDecoration(
-                  labelText: 'Curso / Materia *',
+                  labelText: 'Cursos / Materias (separados por coma) *',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'El curso es requerido';
+                    return 'Al menos un curso es requerido';
                   }
                   if (value.trim().length < 3) {
-                    return 'El curso debe tener al menos 3 caracteres';
+                    return 'Debe tener al menos 3 caracteres';
                   }
                   return null;
                 },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:profe_unasam/models/profesor_model.dart';
 import 'package:profe_unasam/models/review_model.dart';
+import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/screens/add_review_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
@@ -104,8 +105,14 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
   Widget build(BuildContext context) {
     final profesor = _profesor;
     final theme = Theme.of(context);
+    final currentUser = _dataService.getCurrentUser();
+    final baseRole = _dataService.getBaseRole();
     final isFollowingProfesor = _dataService.isProfesorFollowed(profesor.id);
-    final isFollowingCurso = _dataService.isCourseFollowed(profesor.curso);
+    final cursos = profesor.cursos;
+    final isFollowingCurso = _dataService.areAnyCoursesFollowed(cursos);
+    final cursosLabel = cursos.isNotEmpty
+        ? cursos.join(', ')
+        : 'Sin cursos asignados';
 
     return Scaffold(
       appBar: AppBar(title: Text(profesor.nombre)),
@@ -124,7 +131,10 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                       profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
                       ? NetworkImage(profesor.fotoUrl)
                       : null,
-                  onBackgroundImageError: (_, __) {},
+                  onBackgroundImageError:
+                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                      ? (_, __) {}
+                      : null,
                   child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
                       ? Icon(
                           Icons.person,
@@ -151,7 +161,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 ),
               ),
             Text(
-              profesor.curso,
+              cursosLabel,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -192,25 +202,31 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _dataService.toggleFollowCourse(profesor.curso);
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isFollowingCurso
-                                  ? 'Dejaste de seguir el curso'
-                                  : 'Ahora sigues este curso',
-                            ),
-                          ),
-                        );
-                      },
+                      onPressed: cursos.isEmpty
+                          ? null
+                          : () {
+                              setState(() {
+                                if (isFollowingCurso) {
+                                  _dataService.unfollowCourses(cursos);
+                                } else {
+                                  _dataService.followCourses(cursos);
+                                }
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isFollowingCurso
+                                        ? 'Dejaste de seguir los cursos'
+                                        : 'Ahora sigues los cursos',
+                                  ),
+                                ),
+                              );
+                            },
                       icon: Icon(
                         isFollowingCurso ? Icons.school : Icons.school_outlined,
                       ),
                       label: Text(
-                        isFollowingCurso ? 'Siguiendo curso' : 'Seguir curso',
+                        isFollowingCurso ? 'Siguiendo cursos' : 'Seguir cursos',
                       ),
                     ),
                   ),
@@ -418,15 +434,53 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () async {
+                    if (_dataService.getRole() != UserRole.user) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Cambia tu rol a Usuario para comentar',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Debes iniciar sesión')),
+                      );
+                      return;
+                    }
+                    if ((baseRole == UserRole.admin ||
+                            baseRole == UserRole.moderator) &&
+                        !_dataService.hasPublicAlias(currentUser.id)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Define un alias público en tu perfil'),
+                        ),
+                      );
+                      return;
+                    }
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            AddReviewScreen(profesor: profesor),
+                        builder: (context) => AddReviewScreen(
+                          profesor: profesor,
+                          userAlias: _dataService
+                              .getCommentAliasForCurrentUser(),
+                        ),
                       ),
                     );
                     if (result != null && result is Review) {
-                      _dataService.agregarResena(profesor.id, result);
+                      try {
+                        _dataService.agregarResena(profesor.id, result);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                        return;
+                      }
 
                       setState(() {
                         _profesor = _dataService.getProfesores().firstWhere(
@@ -481,16 +535,27 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen> {
                       title: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: List.generate(5, (i) {
-                              return Icon(
-                                i < review.puntuacion
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: AppTheme.accentAmber,
-                                size: 16,
-                              );
-                            }),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Text(
+                                  review.userAlias,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ...List.generate(5, (i) {
+                                  return Icon(
+                                    i < review.puntuacion
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: AppTheme.accentAmber,
+                                    size: 16,
+                                  );
+                                }),
+                              ],
+                            ),
                           ),
                           if (_hasFullAccess)
                             Text(

@@ -59,15 +59,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Profesor> _applyFilters() {
-    // aplicar filtros de busqueda y curso
+    // aplicar filtros de busqueda y cursos
     var filtered = _dataService.getProfesores().where((profesor) {
       final matchesSearch =
           profesor.nombre.toLowerCase().contains(_searchQuery) ||
-          profesor.curso.toLowerCase().contains(_searchQuery);
+          profesor.cursos.any((c) => c.toLowerCase().contains(_searchQuery));
 
       final matchesCourse =
           _selectedCourse == 'todos' ||
-          profesor.curso.toLowerCase() == _selectedCourse.toLowerCase();
+          profesor.cursos.any(
+            (c) => c.toLowerCase() == _selectedCourse.toLowerCase(),
+          );
 
       return matchesSearch && matchesCourse;
     }).toList();
@@ -100,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final courses = <String>{'todos'};
     // extraer cursos unicos de los profesores
     for (var profesor in _dataService.getProfesores()) {
-      courses.add(profesor.curso);
+      courses.addAll(profesor.cursos);
     }
     return courses.toList();
   }
@@ -109,6 +111,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final courses = _getUniqueCourses();
+    final safeSelectedCourse = courses.contains(_selectedCourse)
+        ? _selectedCourse
+        : 'todos';
+    if (safeSelectedCourse != _selectedCourse) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _selectedCourse = safeSelectedCourse;
+          _filteredProfesores = _applyFilters();
+        });
+      });
+    }
     final unreadCount = _dataService.getUnreadNotificationsCount();
 
     return Scaffold(
@@ -205,7 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     MaterialPageRoute(
                       builder: (context) => const SuggestionsScreen(),
                     ),
-                  ).then((_) => setState(() {}));
+                  ).then((_) {
+                    setState(() {
+                      _inicializarDatos();
+                    });
+                  });
                   break;
                 case 'users':
                   Navigator.push(
@@ -316,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // barra de busqueda y filtros reutilizable
           SearchFilterBar(
             searchController: _searchController,
-            selectedCourse: _selectedCourse,
+            selectedCourse: safeSelectedCourse,
             courses: courses,
             sortOption: _sortOption,
             onCourseChanged: (course) {
@@ -375,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           Text(
             _searchQuery.isEmpty && _selectedCourse != 'todos'
-                ? 'intenta cambiar el filtro de curso'
+                ? 'intenta cambiar el filtro de cursos'
                 : 'intenta con otra busqueda',
             style: theme.textTheme.bodySmall,
             textAlign: TextAlign.center,

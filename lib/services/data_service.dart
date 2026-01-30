@@ -23,6 +23,8 @@ class DataService {
   final Map<String, AppUser> _allUsers = {};
   final Map<String, UserRole> _userRoles = {}; // Roles por usuario
   final Map<String, UserRole> _baseRoles = {}; // Rol base/asignado por admin
+  final Map<String, String> _publicAliases =
+      {}; // Alias público para comentarios
   final Set<String> _usersPermittedToChangeRole =
       {}; // IDs que pueden cambiar rol
   final List<Comment> _comments = []; // Comentarios de usuarios
@@ -236,6 +238,56 @@ class DataService {
   Map<String, AppUser> getAllUsers() => _allUsers;
   AppUser? getUserById(String userId) => _allUsers[userId];
 
+  String? getPublicAlias(String userId) => _publicAliases[userId];
+
+  bool hasPublicAlias(String userId) {
+    final alias = _publicAliases[userId];
+    return alias != null && alias.trim().isNotEmpty;
+  }
+
+  bool isAliasAvailable(String alias, {String? excludeUserId}) {
+    final normalized = alias.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+
+    final aliasTakenByUser = _allUsers.values.any(
+      (user) =>
+          user.alias.toLowerCase() == normalized && user.id != excludeUserId,
+    );
+    if (aliasTakenByUser) return false;
+
+    final aliasTakenByPublic = _publicAliases.entries.any(
+      (entry) =>
+          entry.value.toLowerCase() == normalized && entry.key != excludeUserId,
+    );
+
+    return !aliasTakenByPublic;
+  }
+
+  void setPublicAlias(String userId, String alias) {
+    final trimmed = alias.trim();
+    if (!isAliasAvailable(trimmed, excludeUserId: userId)) {
+      throw Exception('El alias público ya está en uso');
+    }
+    _publicAliases[userId] = trimmed;
+  }
+
+  String getCommentAliasForCurrentUser() {
+    if (_currentUser == null) {
+      return 'Anónimo';
+    }
+
+    final userId = _currentUser!.id;
+    final baseRole = _baseRoles[userId];
+    if (baseRole == UserRole.admin || baseRole == UserRole.moderator) {
+      final publicAlias = _publicAliases[userId];
+      if (publicAlias != null && publicAlias.trim().isNotEmpty) {
+        return publicAlias;
+      }
+    }
+
+    return _currentUser!.alias;
+  }
+
   void registerUser(AppUser user) {
     _allUsers[user.id] = user;
   }
@@ -275,12 +327,19 @@ class DataService {
     if (index != -1) {
       final suggestion = _suggestions[index];
       if (suggestion.type == SuggestionType.profesor) {
+        final cursosData = suggestion.data['cursos'];
+        final cursoLegacy = suggestion.data['curso'];
+        final cursos = cursosData is List
+            ? cursosData.whereType<String>().toList()
+            : cursoLegacy is String && cursoLegacy.isNotEmpty
+            ? [cursoLegacy]
+            : <String>[];
         final profesor = Profesor(
           id:
               suggestion.data['id'] ??
               'p${DateTime.now().millisecondsSinceEpoch}',
           nombre: suggestion.data['nombre'] ?? '',
-          curso: suggestion.data['curso'] ?? '',
+          cursos: cursos,
           facultadId: suggestion.data['facultadId'] ?? '',
           escuelaId: suggestion.data['escuelaId'] ?? '',
           calificacion: 0.0,
@@ -453,10 +512,7 @@ class DataService {
   // ======= Permisos por rol =======
 
   /// Usuario puede comentar/calificar profesores
-  bool get canComment =>
-      _role == UserRole.user ||
-      _role == UserRole.moderator ||
-      _role == UserRole.admin;
+  bool get canComment => _role == UserRole.user;
 
   /// Moderador NO puede editar profesores, solo usuarios pueden sugerir y admins/mods aprueban
   bool get canEditProfesor => _role == UserRole.admin;
@@ -561,6 +617,10 @@ class DataService {
     return _followedCourses.contains(curso.toLowerCase());
   }
 
+  bool areAnyCoursesFollowed(List<String> cursos) {
+    return cursos.any(isCourseFollowed);
+  }
+
   void toggleFollowProfesor(String profesorId) {
     if (isProfesorFollowed(profesorId)) {
       _followedProfesorIds.remove(profesorId);
@@ -575,6 +635,20 @@ class DataService {
       _followedCourses.remove(key);
     } else {
       _followedCourses.add(key);
+    }
+  }
+
+  void followCourses(List<String> cursos) {
+    for (final curso in cursos) {
+      if (curso.trim().isEmpty) continue;
+      _followedCourses.add(curso.toLowerCase());
+    }
+  }
+
+  void unfollowCourses(List<String> cursos) {
+    for (final curso in cursos) {
+      if (curso.trim().isEmpty) continue;
+      _followedCourses.remove(curso.toLowerCase());
     }
   }
 
@@ -646,13 +720,16 @@ class DataService {
 
   // agregar resena a profesor
   void agregarResena(String profesorId, Review review) {
+    if (!canComment) {
+      throw Exception('Debes cambiar tu rol a Usuario para comentar');
+    }
     final profesor = _profesores.firstWhere((p) => p.id == profesorId);
     final indice = _profesores.indexOf(profesor);
 
     final profesorActualizado = Profesor(
       id: profesor.id,
       nombre: profesor.nombre,
-      curso: profesor.curso,
+      cursos: profesor.cursos,
       facultadId: profesor.facultadId,
       escuelaId: profesor.escuelaId,
       calificacion: _calcularCalificacion([...profesor.reviews, review]),
@@ -667,13 +744,14 @@ class DataService {
 
   void _crearNotificacionSiAplica(Profesor profesor, Review review) {
     final sigueProfesor = isProfesorFollowed(profesor.id);
-    final sigueCurso = isCourseFollowed(profesor.curso);
+    final sigueCurso = areAnyCoursesFollowed(profesor.cursos);
     if (!sigueProfesor && !sigueCurso) return;
 
+    final primaryCourse = _getPrimaryCourse(profesor);
     final id = 'n${DateTime.now().millisecondsSinceEpoch}';
     final title = sigueProfesor
         ? 'Nueva reseña para ${profesor.nombre}'
-        : 'Nueva reseña en ${profesor.curso}';
+        : 'Nueva reseña en $primaryCourse';
     final body =
         'Se publicó una reseña con ${review.puntuacion.toStringAsFixed(1)} estrellas.';
 
@@ -686,6 +764,16 @@ class DataService {
         createdAt: DateTime.now(),
       ),
     );
+  }
+
+  String _getPrimaryCourse(Profesor profesor) {
+    if (profesor.cursos.isEmpty) {
+      return 'un curso';
+    }
+    if (profesor.cursos.length == 1) {
+      return profesor.cursos.first;
+    }
+    return '${profesor.cursos.first} y otros';
   }
 
   // calcular calificacion promedio

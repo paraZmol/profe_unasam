@@ -17,7 +17,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
   final _dataService = DataService();
 
   late TextEditingController _nombreController;
-  late TextEditingController _cursoController;
+  late TextEditingController _cursosController;
   late TextEditingController _fotoUrlController;
   late TextEditingController _apodoController;
 
@@ -28,7 +28,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
   void initState() {
     super.initState();
     _nombreController = TextEditingController();
-    _cursoController = TextEditingController();
+    _cursosController = TextEditingController();
     _fotoUrlController = TextEditingController();
     _apodoController = TextEditingController();
   }
@@ -36,7 +36,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
   @override
   void dispose() {
     _nombreController.dispose();
-    _cursoController.dispose();
+    _cursosController.dispose();
     _fotoUrlController.dispose();
     _apodoController.dispose();
     super.dispose();
@@ -49,10 +49,23 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
     if (_formKey.currentState!.validate() &&
         _selectedFacultad != null &&
         _selectedEscuela != null) {
+      final cursos = _cursosController.text
+          .split(',')
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (cursos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes ingresar al menos un curso')),
+        );
+        return;
+      }
+
       final nuevoProfesor = Profesor(
         id: _dataService.generarIdUnico('p'),
         nombre: _nombreController.text.trim(),
-        curso: _cursoController.text.trim(),
+        cursos: cursos,
         facultadId: _selectedFacultad!,
         escuelaId: _selectedEscuela!,
         calificacion: 0.0,
@@ -129,16 +142,16 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
               ),
               const SizedBox(height: 16),
 
-              // curso/materia
+              // cursos/materias
               TextFormField(
-                controller: _cursoController,
+                controller: _cursosController,
                 decoration: const InputDecoration(
-                  labelText: 'curso o materia',
+                  labelText: 'cursos o materias (separados por coma)',
                   prefixIcon: Icon(Icons.book),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'el curso es requerido';
+                    return 'al menos un curso es requerido';
                   }
                   return null;
                 },

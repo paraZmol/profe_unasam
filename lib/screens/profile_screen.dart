@@ -96,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _changeOwnRole(UserRole newRole) {
+  Future<void> _changeOwnRole(UserRole newRole) async {
     if (!_dataService.canChangeOwnRole(newRole)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -108,8 +108,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      // El usuario actual cambia su propio rol
       final currentUserId = _dataService.getCurrentUser()?.id ?? '';
+      final baseRole = _dataService.getBaseRole();
+
+      if (newRole == UserRole.user &&
+          (baseRole == UserRole.admin || baseRole == UserRole.moderator)) {
+        final alias = await _promptPublicAlias(currentUserId);
+        if (alias == null) {
+          return;
+        }
+        _dataService.setPublicAlias(currentUserId, alias);
+      }
+
+      // El usuario actual cambia su propio rol
       _dataService.setUserRole(currentUserId, newRole);
 
       // Actualizar el rol local del usuario
@@ -125,6 +136,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  Future<String?> _promptPublicAlias(String userId) async {
+    final controller = TextEditingController(
+      text: _dataService.getPublicAlias(userId) ?? '',
+    );
+    final theme = Theme.of(context);
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Alias público para comentarios'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Para comentar como Usuario, define un alias público (no revela tu rol).',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Alias público',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                final alias = controller.text.trim();
+                if (alias.length < 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'El alias debe tener al menos 3 caracteres',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                if (!_dataService.isAliasAvailable(
+                  alias,
+                  excludeUserId: userId,
+                )) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('El alias público ya está en uso'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, alias);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showChangeRoleDialog() {

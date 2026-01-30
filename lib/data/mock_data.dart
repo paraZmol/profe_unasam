@@ -49,7 +49,7 @@ final List<Profesor> mockProfesores = [
   Profesor(
     id: 'p001',
     nombre: 'Bubu Buble',
-    curso: 'Programación',
+    cursos: ['Programación'],
     facultadId: 'f001',
     escuelaId: 'e001',
     calificacion: 4.5,
@@ -59,6 +59,7 @@ final List<Profesor> mockProfesores = [
     reviews: [
       Review(
         id: 'r001',
+        userAlias: 'Anonimo_01',
         comentario: 'Excelente profesor, explica muy claro.',
         puntuacion: 5.0,
         fecha: DateTime.now().subtract(const Duration(days: 2)),
@@ -69,6 +70,7 @@ final List<Profesor> mockProfesores = [
       ),
       Review(
         id: 'r002',
+        userAlias: 'Anonimo_02',
         comentario: 'Sus examenes son algo dificiles, pero se aprende.',
         puntuacion: 4.0,
         fecha: DateTime.now().subtract(const Duration(days: 10)),
@@ -82,7 +84,7 @@ final List<Profesor> mockProfesores = [
   Profesor(
     id: 'p002',
     nombre: 'Chatox',
-    curso: 'PHP',
+    cursos: ['PHP'],
     facultadId: 'f001',
     escuelaId: 'e001',
     calificacion: 4.9,
@@ -92,6 +94,7 @@ final List<Profesor> mockProfesores = [
     reviews: [
       Review(
         id: 'r003',
+        userAlias: 'Anonimo_03',
         comentario: 'El mejor en PHP de la UNASAM.',
         puntuacion: 5.0,
         fecha: DateTime.now().subtract(const Duration(days: 1)),
@@ -105,7 +108,7 @@ final List<Profesor> mockProfesores = [
   Profesor(
     id: 'p003',
     nombre: 'Silva',
-    curso: 'Programación III',
+    cursos: ['Programación III'],
     facultadId: 'f001',
     escuelaId: 'e001',
     calificacion: 2.0,
@@ -114,6 +117,7 @@ final List<Profesor> mockProfesores = [
     reviews: [
       Review(
         id: 'r004',
+        userAlias: 'Anonimo_04',
         comentario: 'Muy estricto y no explica bien los temas complejos.',
         puntuacion: 2.0,
         fecha: DateTime.now().subtract(const Duration(days: 30)),
@@ -127,7 +131,7 @@ final List<Profesor> mockProfesores = [
   Profesor(
     id: 'p004',
     nombre: 'Abel Anacleto',
-    curso: 'Chuchulogia',
+    cursos: ['Chuchulogia'],
     facultadId: 'f002',
     escuelaId: 'e004',
     calificacion: 4.7,
@@ -137,6 +141,7 @@ final List<Profesor> mockProfesores = [
     reviews: [
       Review(
         id: 'r005',
+        userAlias: 'Anonimo_05',
         comentario: 'Excelente docente, muy dedicado con sus estudiantes.',
         puntuacion: 5.0,
         fecha: DateTime.now().subtract(const Duration(days: 5)),
@@ -154,7 +159,7 @@ final List<Profesor> mockProfesores = [
   Profesor(
     id: 'p005',
     nombre: 'Lic. Martinez',
-    curso: 'Derecho Penal',
+    cursos: ['Derecho Penal'],
     facultadId: 'f003',
     escuelaId: 'e007',
     calificacion: 3.8,
@@ -163,6 +168,7 @@ final List<Profesor> mockProfesores = [
     reviews: [
       Review(
         id: 'r006',
+        userAlias: 'Anonimo_06',
         comentario: 'Buen profesor, aunque a veces es algo confuso.',
         puntuacion: 3.5,
         fecha: DateTime.now().subtract(const Duration(days: 15)),

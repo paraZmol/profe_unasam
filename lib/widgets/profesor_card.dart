@@ -40,7 +40,10 @@ class ProfesorCard extends StatelessWidget {
                       profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
                       ? NetworkImage(profesor.fotoUrl)
                       : null,
-                  onBackgroundImageError: (exception, stackTrace) {},
+                  onBackgroundImageError:
+                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                      ? (exception, stackTrace) {}
+                      : null,
                   child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
                       ? Icon(
                           Icons.person,
@@ -77,7 +80,9 @@ class ProfesorCard extends StatelessWidget {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      profesor.curso,
+                      profesor.cursos.isNotEmpty
+                          ? profesor.cursos.join(', ')
+                          : 'Sin cursos asignados',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

@@ -107,11 +107,16 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
                                     suggestion.data['nombre'] ?? 'Sin nombre',
                                     style: theme.textTheme.titleMedium,
                                   ),
-                                  if (suggestion.data['curso'] != null)
+                                  if (suggestion.data['cursos'] != null ||
+                                      suggestion.data['curso'] != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
                                       child: Text(
-                                        suggestion.data['curso'] ?? '',
+                                        suggestion.data['cursos'] is List
+                                            ? (suggestion.data['cursos']
+                                                      as List)
+                                                  .join(', ')
+                                            : (suggestion.data['curso'] ?? ''),
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
                                               color: theme

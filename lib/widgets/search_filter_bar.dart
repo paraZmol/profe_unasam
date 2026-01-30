@@ -36,7 +36,7 @@ class SearchFilterBar extends StatelessWidget {
           TextField(
             controller: searchController,
             decoration: InputDecoration(
-              hintText: 'busca por nombre o curso...',
+              hintText: 'busca por nombre o cursos...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: searchController.text.isNotEmpty
                   ? IconButton(

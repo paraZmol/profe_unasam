@@ -6,8 +6,13 @@ import 'package:profe_unasam/theme/app_theme.dart';
 
 class AddReviewScreen extends StatefulWidget {
   final Profesor profesor;
+  final String userAlias;
 
-  const AddReviewScreen({super.key, required this.profesor});
+  const AddReviewScreen({
+    super.key,
+    required this.profesor,
+    required this.userAlias,
+  });
 
   @override
   State<AddReviewScreen> createState() => _AddReviewScreenState();
@@ -289,6 +294,7 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
 
                   final newReview = Review(
                     id: DateTime.now().toString(),
+                    userAlias: widget.userAlias,
                     comentario: _commentController.text,
                     puntuacion: _rating,
                     fecha: DateTime.now(),
