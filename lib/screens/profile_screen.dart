@@ -82,8 +82,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
-              _dataService.logout();
+            onPressed: () async {
+              await _dataService.logout();
+              if (!context.mounted) return;
               Navigator.of(context).pop();
               // Ir al LoginScreen y limpiar la pila de navegación
               Navigator.of(

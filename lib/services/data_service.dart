@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:profe_unasam/data/mock_data.dart';
 import 'package:profe_unasam/models/app_notification.dart';
@@ -13,10 +14,25 @@ import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/models/review_flag.dart';
 
+class AuthResult {
+  final bool success;
+  final String? message;
+  final String? code;
+
+  const AuthResult._(this.success, {this.message, this.code});
+
+  factory AuthResult.success() => const AuthResult._(true);
+
+  factory AuthResult.failure({required String message, String? code}) {
+    return AuthResult._(false, message: message, code: code);
+  }
+}
+
 class DataService {
   static final DataService _instance = DataService._internal();
   late List<Profesor> _profesores;
   late List<Facultad> _facultades;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final Set<String> _followedProfesorIds = {};
   final Set<String> _followedCourses = {};
   final List<AppNotification> _notifications = [];
@@ -39,6 +55,7 @@ class DataService {
     _profesores = List.from(mockProfesores);
     _facultades = List.from(mockFacultades);
     _initializeSampleUsers();
+    _syncFromFirebaseUser(_auth.currentUser);
   }
 
   void _initializeSampleUsers() {
@@ -74,9 +91,45 @@ class DataService {
   }
 
   // ======= Auth local =======
-  bool get isLoggedIn => _currentUser != null;
+  bool get isLoggedIn => _auth.currentUser != null;
 
   AppUser? getCurrentUser() => _currentUser;
+
+  void _syncFromFirebaseUser(User? user) {
+    if (user == null) {
+      _currentUser = null;
+      _role = UserRole.user;
+      return;
+    }
+
+    final email = user.email ?? '';
+    AppUser? resolvedUser = _allUsers[user.uid];
+
+    if (resolvedUser == null && email.isNotEmpty) {
+      for (final existing in _allUsers.values) {
+        if (existing.email.toLowerCase() == email.toLowerCase()) {
+          resolvedUser = AppUser(
+            id: user.uid,
+            email: existing.email,
+            alias: existing.alias,
+          );
+          break;
+        }
+      }
+    }
+
+    if (resolvedUser == null) {
+      final displayName = user.displayName?.trim();
+      final alias = (displayName != null && displayName.isNotEmpty)
+          ? displayName
+          : _generateUniqueAlias(email.isNotEmpty ? email : 'user');
+      resolvedUser = AppUser(id: user.uid, email: email, alias: alias);
+    }
+
+    _allUsers[resolvedUser.id] = resolvedUser;
+    _currentUser = resolvedUser;
+    _role = _userRoles[resolvedUser.id] ?? UserRole.user;
+  }
 
   String _generateUniqueAlias(String email) {
     // Extraer la parte antes del @
@@ -105,105 +158,147 @@ class DataService {
   }
 
   /// Registrar un nuevo usuario con alias proporcionado
-  bool registerWithAlias({
+  Future<AuthResult> registerWithAlias({
     required String email,
     required String password,
     required String alias,
-  }) {
+  }) async {
     final emailTrimmed = email.trim().toLowerCase();
     final aliasTrimmed = alias.trim();
 
-    // Verificar si el email ya existe
-    final userExists = _allUsers.values.any(
-      (user) => user.email.toLowerCase() == emailTrimmed,
-    );
-
-    if (userExists) {
-      return false; // Email ya registrado
-    }
-
-    // Verificar si el alias ya existe
+    // Verificar si el alias ya existe localmente
     final aliasExists = _allUsers.values.any(
       (user) => user.alias.toLowerCase() == aliasTrimmed.toLowerCase(),
     );
 
     if (aliasExists) {
-      return false; // Alias ya registrado
+      return AuthResult.failure(message: 'Este alias ya está registrado');
     }
 
-    // Crear nuevo usuario
-    final newUser = AppUser(
-      id: 'u${DateTime.now().millisecondsSinceEpoch}',
-      email: emailTrimmed,
-      alias: aliasTrimmed,
-    );
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: emailTrimmed,
+        password: password,
+      );
 
-    _allUsers[newUser.id] = newUser;
-    _userRoles[newUser.id] = UserRole.user;
+      final user = credential.user;
+      if (user == null) {
+        return AuthResult.failure(
+          message: 'No se pudo crear la cuenta. Intenta de nuevo.',
+        );
+      }
 
-    _currentUser = newUser;
-    _role = UserRole.user;
+      await user.updateDisplayName(aliasTrimmed);
 
-    return true;
+      final newUser = AppUser(
+        id: user.uid,
+        email: emailTrimmed,
+        alias: aliasTrimmed,
+      );
+
+      _allUsers[newUser.id] = newUser;
+      _userRoles[newUser.id] = UserRole.user;
+      _currentUser = newUser;
+      _role = UserRole.user;
+
+      return AuthResult.success();
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return AuthResult.failure(
+            message: 'Este email ya está registrado',
+            code: e.code,
+          );
+        case 'invalid-email':
+          return AuthResult.failure(message: 'Correo inválido', code: e.code);
+        case 'weak-password':
+          return AuthResult.failure(
+            message: 'La contraseña es muy débil',
+            code: e.code,
+          );
+        default:
+          return AuthResult.failure(
+            message: 'No se pudo crear la cuenta. Intenta de nuevo.',
+            code: e.code,
+          );
+      }
+    } catch (_) {
+      return AuthResult.failure(
+        message: 'Ocurrió un error inesperado. Intenta de nuevo.',
+      );
+    }
   }
 
   /// Registrar un nuevo usuario (versión antigua - mantener para compatibilidad)
-  bool register({required String email, required String password}) {
+  Future<AuthResult> register({
+    required String email,
+    required String password,
+  }) async {
     final emailTrimmed = email.trim().toLowerCase();
-
-    // Verificar si el email ya existe
-    final userExists = _allUsers.values.any(
-      (user) => user.email.toLowerCase() == emailTrimmed,
-    );
-
-    if (userExists) {
-      return false; // Email ya registrado
-    }
-
-    // Generar alias único
     final generatedAlias = _generateUniqueAlias(emailTrimmed);
-
-    // Crear nuevo usuario
-    final newUser = AppUser(
-      id: 'u${DateTime.now().millisecondsSinceEpoch}',
+    return registerWithAlias(
       email: emailTrimmed,
+      password: password,
       alias: generatedAlias,
     );
-
-    _allUsers[newUser.id] = newUser;
-    _userRoles[newUser.id] = UserRole.user;
-
-    _currentUser = newUser;
-    _role = UserRole.user;
-
-    return true;
   }
 
   /// Iniciar sesión con un usuario existente
-  bool login({required String email, required String password}) {
+  Future<AuthResult> login({
+    required String email,
+    required String password,
+  }) async {
     final emailTrimmed = email.trim().toLowerCase();
 
-    // Buscar usuario existente por email
-    AppUser? foundUser;
-    for (final user in _allUsers.values) {
-      if (user.email.toLowerCase() == emailTrimmed) {
-        foundUser = user;
-        break;
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: emailTrimmed,
+        password: password,
+      );
+
+      _syncFromFirebaseUser(credential.user);
+
+      if (_currentUser == null) {
+        return AuthResult.failure(
+          message: 'No se pudo iniciar sesión. Intenta de nuevo.',
+        );
       }
+
+      return AuthResult.success();
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'wrong-password':
+          return AuthResult.failure(
+            message: 'Contraseña incorrecta',
+            code: e.code,
+          );
+        case 'user-not-found':
+          return AuthResult.failure(
+            message: 'No existe una cuenta con ese correo',
+            code: e.code,
+          );
+        case 'invalid-email':
+          return AuthResult.failure(message: 'Correo inválido', code: e.code);
+        case 'invalid-credential':
+          return AuthResult.failure(
+            message: 'Credenciales inválidas',
+            code: e.code,
+          );
+        default:
+          return AuthResult.failure(
+            message: 'No se pudo iniciar sesión. Intenta de nuevo.',
+            code: e.code,
+          );
+      }
+    } catch (_) {
+      return AuthResult.failure(
+        message: 'Ocurrió un error inesperado. Intenta de nuevo.',
+      );
     }
-
-    // Si no existe, retornar false
-    if (foundUser == null) {
-      return false;
-    }
-
-    _currentUser = foundUser;
-    _role = _userRoles[foundUser.id] ?? UserRole.user;
-
-    return true;
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await _auth.signOut();
     _currentUser = null;
     _role = UserRole.user;
     _followedProfesorIds.clear();

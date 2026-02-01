@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:profe_unasam/screens/home_screen.dart';
 import 'package:profe_unasam/screens/login_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/theme/app_theme.dart';
 import 'package:profe_unasam/utils/route_observer.dart';
+import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 

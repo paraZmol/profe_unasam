@@ -39,14 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final success = _dataService.registerWithAlias(
+    final result = await _dataService.registerWithAlias(
       email: _emailController.text,
       password: _passwordController.text,
       alias: _aliasController.text,
     );
 
     if (mounted) {
-      if (success) {
+      if (result.success) {
         setState(() {
           _isLoading = false;
         });
@@ -56,7 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
         setState(() {
-          _errorMessage = 'Este email o alias ya está registrado';
+          _errorMessage =
+              result.message ?? 'No se pudo crear la cuenta. Intenta de nuevo.';
           _isLoading = false;
         });
       }
@@ -71,13 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final success = _dataService.login(
+    final result = await _dataService.login(
       email: _emailController.text,
       password: _passwordController.text,
     );
 
     if (mounted) {
-      if (success) {
+      if (result.success) {
         setState(() {
           _isLoading = false;
         });
@@ -87,7 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
         setState(() {
-          _errorMessage = 'Email o contraseña incorrectos';
+          _errorMessage =
+              result.message ?? 'No se pudo iniciar sesión. Intenta de nuevo.';
           _isLoading = false;
         });
       }

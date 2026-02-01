@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "512685603987",
+    "project_id": "doc-in-unasam-app",
+    "storage_bucket": "doc-in-unasam-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512685603987:android:aafecef26394888db36166",
+        "android_client_info": {
+          "package_name": "com.bubu.profe_unasam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQHwutBaZSR8gbzgZ5wgexVjB6aiwBsFU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
