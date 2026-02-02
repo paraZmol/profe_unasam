@@ -32,8 +32,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
+
+    await _dataService.refreshUsersFromFirestore();
 
     final currentEmail = _dataService.getCurrentUser()?.email ?? '';
     final newEmail = _emailController.text.trim().toLowerCase();
@@ -58,7 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
 
-    _dataService.updateProfile(
+    await _dataService.updateProfile(
       alias: _aliasController.text.trim(),
       email: _emailController.text.trim(),
     );
@@ -124,10 +126,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // El usuario actual cambia su propio rol
-      _dataService.setUserRole(currentUserId, newRole);
+      await _dataService.setUserRole(currentUserId, newRole);
 
       // Actualizar el rol local del usuario
       _dataService.setRoleInternal(newRole);
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Rol actualizado a ${newRole.label}')),
@@ -135,6 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() {});
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));

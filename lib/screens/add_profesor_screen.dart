@@ -31,6 +31,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
     _cursosController = TextEditingController();
     _fotoUrlController = TextEditingController();
     _apodoController = TextEditingController();
+    _loadFacultades();
   }
 
   @override
@@ -42,7 +43,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
     super.dispose();
   }
 
-  void _guardarProfesor() {
+  Future<void> _guardarProfesor() async {
     if (!_guardSensitiveAction()) {
       return;
     }
@@ -78,7 +79,7 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
         reviews: [],
       );
 
-      _dataService.agregarProfesor(nuevoProfesor);
+      await _dataService.agregarProfesor(nuevoProfesor);
       widget.onProfesorAdded(nuevoProfesor);
 
       if (mounted) {
@@ -98,6 +99,12 @@ class _AddProfesorScreenState extends State<AddProfesorScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _loadFacultades() async {
+    await _dataService.refreshFacultadesFromFirestore();
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override

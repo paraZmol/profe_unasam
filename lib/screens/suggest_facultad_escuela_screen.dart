@@ -23,12 +23,24 @@ class _SuggestFacultadEscuelaScreenState
   String? _selectedFacultadId;
 
   @override
+  void initState() {
+    super.initState();
+    _loadFacultades();
+  }
+
+  @override
   void dispose() {
     _nombreController.dispose();
     super.dispose();
   }
 
-  void _submitSuggestion() {
+  Future<void> _loadFacultades() async {
+    await _dataService.refreshFacultadesFromFirestore();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _submitSuggestion() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
 
@@ -49,7 +61,7 @@ class _SuggestFacultadEscuelaScreenState
     });
 
     try {
-      _dataService.createSuggestion(type: _type, data: data);
+      await _dataService.createSuggestion(type: _type, data: data);
     } catch (e) {
       ScaffoldMessenger.of(
         context,

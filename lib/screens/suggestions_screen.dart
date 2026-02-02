@@ -12,7 +12,7 @@ class SuggestionsScreen extends StatefulWidget {
 
 class _SuggestionsScreenState extends State<SuggestionsScreen> {
   final _dataService = DataService();
-  late List<Suggestion> _pendingSuggestions;
+  List<Suggestion> _pendingSuggestions = [];
 
   @override
   void initState() {
@@ -20,19 +20,13 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
     _loadSuggestions();
   }
 
-  void _loadSuggestions() {
-    setState(() {
-      _pendingSuggestions = _dataService.getPendingSuggestions();
-    });
-  }
-
-  void _approveSuggestion(Suggestion suggestion) {
+  Future<void> _approveSuggestion(Suggestion suggestion) async {
     if (!_guardSensitiveAction()) {
       return;
     }
     try {
-      _dataService.approveSuggestion(suggestion.id);
-      _loadSuggestions();
+      await _dataService.approveSuggestion(suggestion.id);
+      await _loadSuggestions();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Sugerencia aprobada')));
@@ -43,15 +37,25 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
     }
   }
 
-  void _rejectSuggestion(Suggestion suggestion) {
+  Future<void> _rejectSuggestion(Suggestion suggestion) async {
     if (!_guardSensitiveAction()) {
       return;
     }
-    _dataService.rejectSuggestion(suggestion.id);
-    _loadSuggestions();
+    await _dataService.rejectSuggestion(suggestion.id);
+    await _loadSuggestions();
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Sugerencia rechazada')));
+  }
+
+  Future<void> _loadSuggestions() async {
+    await _dataService.refreshSuggestionsFromFirestore(
+      status: SuggestionStatus.pending,
+    );
+    if (!mounted) return;
+    setState(() {
+      _pendingSuggestions = _dataService.getPendingSuggestions();
+    });
   }
 
   @override

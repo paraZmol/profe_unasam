@@ -24,6 +24,16 @@ class Profesor {
   });
 
   factory Profesor.fromJson(Map<String, dynamic> json) {
+    String readString(dynamic value, {String fallback = ''}) {
+      if (value is String) {
+        final trimmed = value.trim();
+        return trimmed.isNotEmpty ? trimmed : fallback;
+      }
+      if (value == null) return fallback;
+      final asString = value.toString().trim();
+      return asString.isNotEmpty ? asString : fallback;
+    }
+
     final cursosJson = json['cursos'];
     final legacyCurso = json['curso'];
     final cursos = cursosJson is List
@@ -33,13 +43,16 @@ class Profesor {
         : <String>[];
 
     return Profesor(
-      id: json['id'] as String,
-      nombre: json['nombre'] as String,
+      id: readString(json['id'], fallback: 'unknown'),
+      nombre: readString(json['nombre'], fallback: 'Sin nombre'),
       cursos: cursos,
-      facultadId: json['facultadId'] as String,
-      escuelaId: json['escuelaId'] as String,
-      calificacion: (json['calificacion'] as num).toDouble(),
-      fotoUrl: json['fotoUrl'] as String,
+      facultadId: readString(json['facultadId']),
+      escuelaId: readString(json['escuelaId']),
+      calificacion: (json['calificacion'] as num?)?.toDouble() ?? 0.0,
+      fotoUrl: readString(
+        json['fotoUrl'],
+        fallback: 'https://i.pravatar.cc/150?img=1',
+      ),
       apodo: json['apodo'] as String?,
       reviews:
           (json['reviews'] as List<dynamic>?)

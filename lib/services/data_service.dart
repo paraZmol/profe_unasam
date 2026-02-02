@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:profe_unasam/data/mock_data.dart';
 import 'package:profe_unasam/models/app_notification.dart';
 import 'package:profe_unasam/models/comment_model.dart';
 import 'package:profe_unasam/models/facultad_model.dart';
@@ -13,6 +13,7 @@ import 'package:profe_unasam/models/review_model.dart';
 import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/models/review_flag.dart';
+import 'package:profe_unasam/services/firestore_service.dart';
 
 class AuthResult {
   final bool success;
@@ -33,6 +34,7 @@ class DataService {
   late List<Profesor> _profesores;
   late List<Facultad> _facultades;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   final Set<String> _followedProfesorIds = {};
   final Set<String> _followedCourses = {};
   final List<AppNotification> _notifications = [];
@@ -52,10 +54,14 @@ class DataService {
   final List<Comment> _comments = []; // Comentarios de usuarios
 
   DataService._internal() {
-    _profesores = List.from(mockProfesores);
-    _facultades = List.from(mockFacultades);
+    _profesores = [];
+    _facultades = [];
     _initializeSampleUsers();
     _syncFromFirebaseUser(_auth.currentUser);
+    refreshUsersFromFirestore().catchError((_) {});
+    refreshFacultadesFromFirestore().catchError((_) {});
+    refreshProfesoresFromFirestore().catchError((_) {});
+    refreshReviewFlagsFromFirestore().catchError((_) {});
   }
 
   void _initializeSampleUsers() {
@@ -105,14 +111,20 @@ class DataService {
     final email = user.email ?? '';
     AppUser? resolvedUser = _allUsers[user.uid];
 
+    UserRole? matchedRole;
+    UserRole? matchedBaseRole;
+
     if (resolvedUser == null && email.isNotEmpty) {
-      for (final existing in _allUsers.values) {
+      for (final entry in _allUsers.entries) {
+        final existing = entry.value;
         if (existing.email.toLowerCase() == email.toLowerCase()) {
           resolvedUser = AppUser(
             id: user.uid,
             email: existing.email,
             alias: existing.alias,
           );
+          matchedRole = _userRoles[entry.key];
+          matchedBaseRole = _baseRoles[entry.key];
           break;
         }
       }
@@ -127,8 +139,159 @@ class DataService {
     }
 
     _allUsers[resolvedUser.id] = resolvedUser;
+    if (matchedRole != null) {
+      _userRoles[resolvedUser.id] = matchedRole;
+    }
+    if (matchedBaseRole != null) {
+      _baseRoles[resolvedUser.id] = matchedBaseRole;
+      if (matchedBaseRole == UserRole.admin ||
+          matchedBaseRole == UserRole.moderator) {
+        _usersPermittedToChangeRole.add(resolvedUser.id);
+      }
+    }
     _currentUser = resolvedUser;
     _role = _userRoles[resolvedUser.id] ?? UserRole.user;
+
+    _syncFromFirestoreUser(
+      user,
+      aliasOverride: resolvedUser.alias,
+    ).catchError((_) {});
+  }
+
+  String _roleToString(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'admin';
+      case UserRole.moderator:
+        return 'moderator';
+      case UserRole.user:
+        return 'user';
+    }
+  }
+
+  UserRole _roleFromString(String? value) {
+    switch (value) {
+      case 'admin':
+        return UserRole.admin;
+      case 'moderator':
+        return UserRole.moderator;
+      default:
+        return UserRole.user;
+    }
+  }
+
+  Future<void> _syncFromFirestoreUser(
+    User user, {
+    String? aliasOverride,
+  }) async {
+    final doc = await _firestoreService.getUserById(user.uid);
+    final email = user.email ?? '';
+
+    if (doc == null) {
+      final alias = aliasOverride?.trim().isNotEmpty == true
+          ? aliasOverride!.trim()
+          : (user.displayName?.trim().isNotEmpty == true
+                ? user.displayName!.trim()
+                : _generateUniqueAlias(email.isNotEmpty ? email : 'user'));
+
+      await _firestoreService.upsertUser(
+        userId: user.uid,
+        email: email,
+        alias: alias,
+        role: 'user',
+        baseRole: 'user',
+        canChangeRole: false,
+      );
+
+      _allUsers[user.uid] = AppUser(id: user.uid, email: email, alias: alias);
+      _userRoles[user.uid] = UserRole.user;
+      _baseRoles[user.uid] = UserRole.user;
+      _currentUser = _allUsers[user.uid];
+      _role = UserRole.user;
+      return;
+    }
+
+    final alias = (doc['alias'] as String?)?.trim().isNotEmpty == true
+        ? (doc['alias'] as String).trim()
+        : (user.displayName?.trim().isNotEmpty == true
+              ? user.displayName!.trim()
+              : _generateUniqueAlias(email.isNotEmpty ? email : 'user'));
+
+    final role = _roleFromString(doc['role'] as String?);
+    final baseRole = _roleFromString(doc['baseRole'] as String?);
+    final canChangeRole =
+        doc['canChangeRole'] == true ||
+        baseRole == UserRole.admin ||
+        baseRole == UserRole.moderator;
+
+    final resolvedUser = AppUser(id: user.uid, email: email, alias: alias);
+    _allUsers[resolvedUser.id] = resolvedUser;
+    _userRoles[resolvedUser.id] = role;
+    _baseRoles[resolvedUser.id] = baseRole;
+    if (canChangeRole) {
+      _usersPermittedToChangeRole.add(resolvedUser.id);
+    } else {
+      _usersPermittedToChangeRole.remove(resolvedUser.id);
+    }
+    _currentUser = resolvedUser;
+    _role = role;
+    await refreshFollowsFromFirestore();
+    await refreshNotificationsFromFirestore();
+  }
+
+  Future<void> refreshUsersFromFirestore() async {
+    final users = await _firestoreService.listUsers();
+
+    _allUsers.clear();
+    _userRoles.clear();
+    _baseRoles.clear();
+    _usersPermittedToChangeRole.clear();
+
+    for (final data in users) {
+      final userId = data['id'] as String?;
+      if (userId == null || userId.trim().isEmpty) continue;
+      final email = (data['email'] as String?)?.trim() ?? '';
+      final alias = (data['alias'] as String?)?.trim() ?? '';
+      final role = _roleFromString(data['role'] as String?);
+      final baseRole = _roleFromString(data['baseRole'] as String?);
+      final canChangeRole =
+          data['canChangeRole'] == true ||
+          baseRole == UserRole.admin ||
+          baseRole == UserRole.moderator;
+
+      _allUsers[userId] = AppUser(id: userId, email: email, alias: alias);
+      _userRoles[userId] = role;
+      _baseRoles[userId] = baseRole;
+      if (canChangeRole) {
+        _usersPermittedToChangeRole.add(userId);
+      }
+    }
+
+    if (_currentUser != null && _allUsers.containsKey(_currentUser!.id)) {
+      _currentUser = _allUsers[_currentUser!.id];
+      _role = _userRoles[_currentUser!.id] ?? UserRole.user;
+    }
+  }
+
+  Future<void> refreshFollowsFromFirestore() async {
+    if (_currentUser == null) return;
+    final data = await _firestoreService.getUserFollows(_currentUser!.id);
+    if (data == null) return;
+
+    final profesorIds = (data['followedProfesorIds'] as List<dynamic>? ?? [])
+        .whereType<String>()
+        .toSet();
+    final courses = (data['followedCourses'] as List<dynamic>? ?? [])
+        .whereType<String>()
+        .map((c) => c.toLowerCase())
+        .toSet();
+
+    _followedProfesorIds
+      ..clear()
+      ..addAll(profesorIds);
+    _followedCourses
+      ..clear()
+      ..addAll(courses);
   }
 
   String _generateUniqueAlias(String email) {
@@ -190,16 +353,16 @@ class DataService {
 
       await user.updateDisplayName(aliasTrimmed);
 
-      final newUser = AppUser(
-        id: user.uid,
+      await _firestoreService.upsertUser(
+        userId: user.uid,
         email: emailTrimmed,
         alias: aliasTrimmed,
+        role: _roleToString(UserRole.user),
+        baseRole: _roleToString(UserRole.user),
+        canChangeRole: false,
       );
 
-      _allUsers[newUser.id] = newUser;
-      _userRoles[newUser.id] = UserRole.user;
-      _currentUser = newUser;
-      _role = UserRole.user;
+      await _syncFromFirestoreUser(user, aliasOverride: aliasTrimmed);
 
       return AuthResult.success();
     } on FirebaseAuthException catch (e) {
@@ -256,7 +419,12 @@ class DataService {
         password: password,
       );
 
-      _syncFromFirebaseUser(credential.user);
+      final user = credential.user;
+      if (user != null) {
+        await _syncFromFirestoreUser(user);
+      } else {
+        _syncFromFirebaseUser(user);
+      }
 
       if (_currentUser == null) {
         return AuthResult.failure(
@@ -306,7 +474,7 @@ class DataService {
     _notifications.clear();
   }
 
-  void updateProfile({String? alias, String? email}) {
+  Future<void> updateProfile({String? alias, String? email}) async {
     if (_currentUser == null) return;
 
     final newEmail = email != null
@@ -321,7 +489,6 @@ class DataService {
             user.id != _currentUser!.id && user.email.toLowerCase() == newEmail,
       );
       if (emailExists) {
-        // Email ya existe, no permitir cambio
         return;
       }
     }
@@ -333,6 +500,12 @@ class DataService {
     );
     _currentUser = updatedUser;
     _allUsers[_currentUser!.id] = updatedUser;
+
+    await _firestoreService.updateUserProfile(
+      userId: _currentUser!.id,
+      email: newEmail,
+      alias: newAlias,
+    );
   }
 
   // ======= Gestión de usuarios =======
@@ -413,23 +586,108 @@ class DataService {
   }
 
   // ======= Sugerencias =======
+  String _suggestionTypeToString(SuggestionType type) {
+    switch (type) {
+      case SuggestionType.profesor:
+        return 'profesor';
+      case SuggestionType.facultad:
+        return 'facultad';
+      case SuggestionType.escuela:
+        return 'escuela';
+    }
+  }
+
+  SuggestionType _suggestionTypeFromString(String? value) {
+    switch (value) {
+      case 'profesor':
+        return SuggestionType.profesor;
+      case 'escuela':
+        return SuggestionType.escuela;
+      default:
+        return SuggestionType.facultad;
+    }
+  }
+
+  String _suggestionStatusToString(SuggestionStatus status) {
+    switch (status) {
+      case SuggestionStatus.pending:
+        return 'pending';
+      case SuggestionStatus.approved:
+        return 'approved';
+      case SuggestionStatus.rejected:
+        return 'rejected';
+    }
+  }
+
+  SuggestionStatus _suggestionStatusFromString(String? value) {
+    switch (value) {
+      case 'approved':
+        return SuggestionStatus.approved;
+      case 'rejected':
+        return SuggestionStatus.rejected;
+      default:
+        return SuggestionStatus.pending;
+    }
+  }
+
+  Suggestion _suggestionFromMap(Map<String, dynamic> data) {
+    final createdAtRaw = data['createdAt'];
+    DateTime createdAt;
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is String) {
+      createdAt = DateTime.tryParse(createdAtRaw) ?? DateTime.now();
+    } else {
+      createdAt = DateTime.now();
+    }
+    return Suggestion(
+      id: data['id'] as String,
+      userId: data['userId'] as String? ?? '',
+      userAlias: data['userAlias'] as String? ?? 'Anónimo',
+      type: _suggestionTypeFromString(data['type'] as String?),
+      status: _suggestionStatusFromString(data['status'] as String?),
+      createdAt: createdAt,
+      data: (data['data'] as Map<String, dynamic>? ?? {}),
+    );
+  }
+
   List<Suggestion> getSuggestions({SuggestionStatus? status}) {
     if (status == null) return List.unmodifiable(_suggestions);
     return _suggestions.where((s) => s.status == status).toList();
   }
 
-  void createSuggestion({
+  Future<void> refreshSuggestionsFromFirestore({
+    SuggestionStatus? status,
+  }) async {
+    final statusValue = status != null
+        ? _suggestionStatusToString(status)
+        : null;
+    final data = await _firestoreService.listSuggestions(status: statusValue);
+    _suggestions
+      ..clear()
+      ..addAll(data.map(_suggestionFromMap));
+  }
+
+  Future<void> createSuggestion({
     required SuggestionType type,
     required Map<String, dynamic> data,
-  }) {
+  }) async {
     if (_currentUser == null) {
       throw Exception('Debes iniciar sesión para sugerir');
     }
 
     _validateSuggestion(type, data);
+    final id = await _firestoreService.addSuggestion({
+      'userId': _currentUser!.id,
+      'userAlias': _currentUser!.alias,
+      'type': _suggestionTypeToString(type),
+      'status': _suggestionStatusToString(SuggestionStatus.pending),
+      'data': data,
+    });
+
     _suggestions.add(
       Suggestion(
-        id: 's${DateTime.now().millisecondsSinceEpoch}',
+        id: id,
         userId: _currentUser!.id,
         userAlias: _currentUser!.alias,
         type: type,
@@ -447,9 +705,14 @@ class DataService {
       final name = normalize(data['nombre'] ?? '');
       final facultadId = (data['facultadId'] ?? '') as String;
       final escuelaId = (data['escuelaId'] ?? '') as String;
+      final fotoUrl = (data['fotoUrl'] ?? '').toString().trim();
 
       if (name.length < 3) {
         throw Exception('Nombre de docente inválido');
+      }
+
+      if (fotoUrl.isEmpty) {
+        throw Exception('La imagen del docente es requerida');
       }
 
       final duplicateProfesor = _profesores.any((p) {
@@ -518,7 +781,7 @@ class DataService {
     }
   }
 
-  void approveSuggestion(String suggestionId) {
+  Future<void> approveSuggestion(String suggestionId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -526,68 +789,72 @@ class DataService {
       throw Exception('No tienes permisos para aprobar sugerencias');
     }
     final index = _suggestions.indexWhere((s) => s.id == suggestionId);
-    if (index != -1) {
-      final suggestion = _suggestions[index];
-      if (suggestion.type == SuggestionType.profesor) {
-        final cursosData = suggestion.data['cursos'];
-        final cursoLegacy = suggestion.data['curso'];
-        final cursos = cursosData is List
-            ? cursosData.whereType<String>().toList()
-            : cursoLegacy is String && cursoLegacy.isNotEmpty
-            ? [cursoLegacy]
-            : <String>[];
-        final profesor = Profesor(
-          id:
-              suggestion.data['id'] ??
-              'p${DateTime.now().millisecondsSinceEpoch}',
-          nombre: suggestion.data['nombre'] ?? '',
-          cursos: cursos,
-          facultadId: suggestion.data['facultadId'] ?? '',
-          escuelaId: suggestion.data['escuelaId'] ?? '',
-          calificacion: 0.0,
-          fotoUrl: suggestion.data['fotoUrl'] ?? '',
-          apodo: suggestion.data['apodo'],
-          reviews: [],
-        );
-        _profesores.add(profesor);
-      } else if (suggestion.type == SuggestionType.facultad) {
-        final facultad = Facultad(
-          id:
-              suggestion.data['id'] ??
-              'f${DateTime.now().millisecondsSinceEpoch}',
-          nombre: suggestion.data['nombre'] ?? '',
-          escuelas: [],
-        );
-        _facultades.add(facultad);
-      } else if (suggestion.type == SuggestionType.escuela) {
-        final facultadId = suggestion.data['facultadId'] ?? '';
-        if (facultadId.isEmpty) {
-          throw Exception(
-            'La sugerencia de escuela no tiene facultad asignada',
-          );
-        }
-        final escuela = Escuela(
-          id:
-              suggestion.data['id'] ??
-              'e${DateTime.now().millisecondsSinceEpoch}',
-          nombre: suggestion.data['nombre'] ?? '',
-          facultadId: facultadId,
-        );
-        agregarEscuela(facultadId, escuela);
-      }
-      _suggestions[index] = Suggestion(
-        id: suggestion.id,
-        userId: suggestion.userId,
-        userAlias: suggestion.userAlias,
-        type: suggestion.type,
-        status: SuggestionStatus.approved,
-        createdAt: suggestion.createdAt,
-        data: suggestion.data,
+    if (index == -1) return;
+
+    final suggestion = _suggestions[index];
+    if (suggestion.type == SuggestionType.profesor) {
+      final cursosData = suggestion.data['cursos'];
+      final cursoLegacy = suggestion.data['curso'];
+      final cursos = cursosData is List
+          ? cursosData.whereType<String>().toList()
+          : cursoLegacy is String && cursoLegacy.isNotEmpty
+          ? [cursoLegacy]
+          : <String>[];
+      final profesor = Profesor(
+        id:
+            suggestion.data['id'] ??
+            'p${DateTime.now().millisecondsSinceEpoch}',
+        nombre: suggestion.data['nombre'] ?? '',
+        cursos: cursos,
+        facultadId: suggestion.data['facultadId'] ?? '',
+        escuelaId: suggestion.data['escuelaId'] ?? '',
+        calificacion: 0.0,
+        fotoUrl: suggestion.data['fotoUrl'] ?? '',
+        apodo: suggestion.data['apodo'],
+        reviews: [],
       );
+      await agregarProfesor(profesor);
+    } else if (suggestion.type == SuggestionType.facultad) {
+      final facultad = Facultad(
+        id:
+            suggestion.data['id'] ??
+            'f${DateTime.now().millisecondsSinceEpoch}',
+        nombre: suggestion.data['nombre'] ?? '',
+        escuelas: [],
+      );
+      await agregarFacultad(facultad);
+    } else if (suggestion.type == SuggestionType.escuela) {
+      final facultadId = suggestion.data['facultadId'] ?? '';
+      if (facultadId.isEmpty) {
+        throw Exception('La sugerencia de escuela no tiene facultad asignada');
+      }
+      final escuela = Escuela(
+        id:
+            suggestion.data['id'] ??
+            'e${DateTime.now().millisecondsSinceEpoch}',
+        nombre: suggestion.data['nombre'] ?? '',
+        facultadId: facultadId,
+      );
+      await agregarEscuela(facultadId, escuela);
     }
+
+    _suggestions[index] = Suggestion(
+      id: suggestion.id,
+      userId: suggestion.userId,
+      userAlias: suggestion.userAlias,
+      type: suggestion.type,
+      status: SuggestionStatus.approved,
+      createdAt: suggestion.createdAt,
+      data: suggestion.data,
+    );
+
+    await _firestoreService.updateSuggestionStatus(
+      suggestionId: suggestion.id,
+      status: _suggestionStatusToString(SuggestionStatus.approved),
+    );
   }
 
-  void rejectSuggestion(String suggestionId) {
+  Future<void> rejectSuggestion(String suggestionId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -605,6 +872,11 @@ class DataService {
         status: SuggestionStatus.rejected,
         createdAt: suggestion.createdAt,
         data: suggestion.data,
+      );
+
+      await _firestoreService.updateSuggestionStatus(
+        suggestionId: suggestion.id,
+        status: _suggestionStatusToString(SuggestionStatus.rejected),
       );
     }
   }
@@ -666,7 +938,7 @@ class DataService {
     _role = role;
   }
 
-  void setUserRole(String userId, UserRole role) {
+  Future<void> setUserRole(String userId, UserRole role) async {
     if (!_allUsers.containsKey(userId)) {
       throw Exception('Usuario no encontrado');
     }
@@ -677,6 +949,12 @@ class DataService {
     // Si es cambio propio y está permitido por rol base, permitir sin exigir admin
     if (canSelfChange) {
       _userRoles[userId] = role;
+      await _firestoreService.updateUserRole(
+        userId: userId,
+        role: _roleToString(role),
+        baseRole: _roleToString(_baseRoles[userId] ?? role),
+        canChangeRole: _usersPermittedToChangeRole.contains(userId),
+      );
       return;
     }
 
@@ -703,6 +981,13 @@ class DataService {
     } else {
       _usersPermittedToChangeRole.remove(userId);
     }
+
+    await _firestoreService.updateUserRole(
+      userId: userId,
+      role: _roleToString(role),
+      baseRole: _roleToString(_baseRoles[userId] ?? role),
+      canChangeRole: _usersPermittedToChangeRole.contains(userId),
+    );
   }
 
   bool get canManageFacultades =>
@@ -764,7 +1049,7 @@ class DataService {
   }
 
   /// Promover usuario a moderador (solo admin)
-  void promoteToModerator(String userId) {
+  Future<void> promoteToModerator(String userId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -777,10 +1062,17 @@ class DataService {
     _userRoles[userId] = UserRole.moderator;
     _baseRoles[userId] = UserRole.moderator;
     _usersPermittedToChangeRole.add(userId);
+
+    await _firestoreService.updateUserRole(
+      userId: userId,
+      role: _roleToString(UserRole.moderator),
+      baseRole: _roleToString(UserRole.moderator),
+      canChangeRole: true,
+    );
   }
 
   /// Promover moderador a administrador (solo admin, desde moderador)
-  void promoteToAdmin(String userId) {
+  Future<void> promoteToAdmin(String userId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -797,10 +1089,17 @@ class DataService {
     _userRoles[userId] = UserRole.admin;
     _baseRoles[userId] = UserRole.admin;
     _usersPermittedToChangeRole.add(userId);
+
+    await _firestoreService.updateUserRole(
+      userId: userId,
+      role: _roleToString(UserRole.admin),
+      baseRole: _roleToString(UserRole.admin),
+      canChangeRole: true,
+    );
   }
 
   /// Degradar moderador a usuario (solo admin)
-  void demoteModerator(String userId) {
+  Future<void> demoteModerator(String userId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -813,6 +1112,13 @@ class DataService {
     _userRoles[userId] = UserRole.user;
     _baseRoles[userId] = UserRole.user;
     _usersPermittedToChangeRole.remove(userId);
+
+    await _firestoreService.updateUserRole(
+      userId: userId,
+      role: _roleToString(UserRole.user),
+      baseRole: _roleToString(UserRole.user),
+      canChangeRole: false,
+    );
   }
 
   // ======= Seguimiento =======
@@ -834,6 +1140,7 @@ class DataService {
     } else {
       _followedProfesorIds.add(profesorId);
     }
+    _persistFollows();
   }
 
   void toggleFollowCourse(String curso) {
@@ -843,6 +1150,7 @@ class DataService {
     } else {
       _followedCourses.add(key);
     }
+    _persistFollows();
   }
 
   void followCourses(List<String> cursos) {
@@ -850,6 +1158,7 @@ class DataService {
       if (curso.trim().isEmpty) continue;
       _followedCourses.add(curso.toLowerCase());
     }
+    _persistFollows();
   }
 
   void unfollowCourses(List<String> cursos) {
@@ -857,24 +1166,79 @@ class DataService {
       if (curso.trim().isEmpty) continue;
       _followedCourses.remove(curso.toLowerCase());
     }
+    _persistFollows();
+  }
+
+  void _persistFollows() {
+    if (_currentUser == null) return;
+    _firestoreService.updateUserFollows(
+      userId: _currentUser!.id,
+      followedProfesorIds: _followedProfesorIds.toList(),
+      followedCourses: _followedCourses.toList(),
+    );
   }
 
   // ======= Notificaciones =======
   List<AppNotification> getNotifications() => List.unmodifiable(_notifications);
 
+  Future<void> refreshNotificationsFromFirestore() async {
+    if (_currentUser == null) return;
+    final data = await _firestoreService.listNotifications(_currentUser!.id);
+    _notifications
+      ..clear()
+      ..addAll(data.map(_notificationFromMap));
+  }
+
   int getUnreadNotificationsCount() {
     return _notifications.where((n) => !n.isRead).length;
   }
 
-  void markNotificationRead(String id) {
+  Future<void> markNotificationRead(String id) async {
     final index = _notifications.indexWhere((n) => n.id == id);
     if (index != -1) {
       _notifications[index] = _notifications[index].copyWith(isRead: true);
     }
+    await _firestoreService.markNotificationRead(id);
   }
 
-  void clearNotifications() {
+  Future<void> clearNotifications() async {
     _notifications.clear();
+    if (_currentUser != null) {
+      await _firestoreService.clearNotifications(_currentUser!.id);
+    }
+  }
+
+  AppNotification _notificationFromMap(Map<String, dynamic> data) {
+    final createdAtRaw = data['createdAt'];
+    DateTime createdAt;
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is String) {
+      createdAt = DateTime.tryParse(createdAtRaw) ?? DateTime.now();
+    } else {
+      createdAt = DateTime.now();
+    }
+    return AppNotification(
+      id: data['id'] as String,
+      title: data['title'] as String? ?? '',
+      body: data['body'] as String? ?? '',
+      createdAt: createdAt,
+      isRead: data['isRead'] == true,
+      actionType: data['actionType'] as String?,
+      actionId: data['actionId'] as String?,
+    );
+  }
+
+  Future<void> _pushNotification(AppNotification notification) async {
+    _notifications.insert(0, notification);
+    if (_currentUser == null) return;
+    await _firestoreService.addNotification(
+      userId: _currentUser!.id,
+      title: notification.title,
+      body: notification.body,
+      actionType: notification.actionType,
+      actionId: notification.actionId,
+    );
   }
 
   // obtener todos los profesores
@@ -882,6 +1246,16 @@ class DataService {
 
   // obtener todas las facultades
   List<Facultad> getFacultades() => _facultades;
+
+  Future<void> refreshFacultadesFromFirestore() async {
+    final data = await _firestoreService.listFacultades();
+    _facultades = data.map((item) => Facultad.fromJson(item)).toList();
+  }
+
+  Future<void> refreshProfesoresFromFirestore() async {
+    final data = await _firestoreService.listProfesores();
+    _profesores = data.map((item) => Profesor.fromJson(item)).toList();
+  }
 
   // obtener escuela por id
   Escuela? getEscuelaById(String escuelaId) {
@@ -905,7 +1279,7 @@ class DataService {
   }
 
   // agregar nuevo profesor
-  void agregarProfesor(Profesor profesor) {
+  Future<void> agregarProfesor(Profesor profesor) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -915,18 +1289,20 @@ class DataService {
       );
     }
     _profesores.add(profesor);
+    await _firestoreService.upsertProfesor(profesor.toJson());
   }
 
   // actualizar profesor
-  void actualizarProfesor(Profesor profesor) {
+  Future<void> actualizarProfesor(Profesor profesor) async {
     final index = _profesores.indexWhere((p) => p.id == profesor.id);
     if (index != -1) {
       _profesores[index] = profesor;
+      await _firestoreService.upsertProfesor(profesor.toJson());
     }
   }
 
   // agregar resena a profesor
-  void agregarResena(String profesorId, Review review) {
+  Future<void> agregarResena(String profesorId, Review review) async {
     if (!canComment) {
       throw Exception('Debes cambiar tu rol a Usuario para comentar');
     }
@@ -941,10 +1317,22 @@ class DataService {
       escuelaId: profesor.escuelaId,
       calificacion: _calcularCalificacion([...profesor.reviews, review]),
       fotoUrl: profesor.fotoUrl,
+      apodo: profesor.apodo,
       reviews: [...profesor.reviews, review],
     );
 
     _profesores[indice] = profesorActualizado;
+
+    await _firestoreService.upsertProfesor(profesorActualizado.toJson());
+
+    final curso = profesorActualizado.cursos.isNotEmpty
+        ? profesorActualizado.cursos.first
+        : '';
+    await _firestoreService.guardar_calificacion(
+      docente: profesorActualizado.nombre,
+      curso: curso,
+      puntaje: review.puntuacion,
+    );
 
     _crearNotificacionSiAplica(profesorActualizado, review);
   }
@@ -962,8 +1350,7 @@ class DataService {
     final body =
         'Se publicó una reseña con ${review.puntuacion.toStringAsFixed(1)} estrellas.';
 
-    _notifications.insert(
-      0,
+    _pushNotification(
       AppNotification(
         id: id,
         title: title,
@@ -984,6 +1371,66 @@ class DataService {
   }
 
   // ======= Moderación de comentarios (reviews) =======
+  String _reviewFlagStatusToString(ReviewFlagStatus status) {
+    switch (status) {
+      case ReviewFlagStatus.pending:
+        return 'pending';
+      case ReviewFlagStatus.approved:
+        return 'approved';
+      case ReviewFlagStatus.rejected:
+        return 'rejected';
+    }
+  }
+
+  ReviewFlagStatus _reviewFlagStatusFromString(String? value) {
+    switch (value) {
+      case 'approved':
+        return ReviewFlagStatus.approved;
+      case 'rejected':
+        return ReviewFlagStatus.rejected;
+      default:
+        return ReviewFlagStatus.pending;
+    }
+  }
+
+  ReviewFlag _reviewFlagFromMap(Map<String, dynamic> data) {
+    final createdAtRaw = data['createdAt'];
+    DateTime createdAt;
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is String) {
+      createdAt = DateTime.tryParse(createdAtRaw) ?? DateTime.now();
+    } else {
+      createdAt = DateTime.now();
+    }
+
+    return ReviewFlag(
+      id: data['id'] as String,
+      reviewId: data['reviewId'] as String? ?? '',
+      profesorId: data['profesorId'] as String? ?? '',
+      reason: data['reason'] as String? ?? '',
+      flaggedByUserId: data['flaggedByUserId'] as String? ?? '',
+      createdAt: createdAt,
+      moderatorApprovals: Set<String>.from(
+        (data['moderatorApprovals'] as List<dynamic>? ?? []),
+      ),
+      adminApproved: data['adminApproved'] == true,
+      status: _reviewFlagStatusFromString(data['status'] as String?),
+    );
+  }
+
+  Future<void> refreshReviewFlagsFromFirestore({
+    ReviewFlagStatus? status,
+  }) async {
+    final statusValue = status != null
+        ? _reviewFlagStatusToString(status)
+        : null;
+    final data = await _firestoreService.listReviewFlags(status: statusValue);
+    _reviewFlags
+      ..clear()
+      ..addAll(data.map(_reviewFlagFromMap));
+  }
+
   bool isReviewHidden(String reviewId) => _hiddenReviewIds.contains(reviewId);
 
   ReviewFlag? getReviewFlagByReviewId(String reviewId) {
@@ -1000,11 +1447,11 @@ class DataService {
         .toList();
   }
 
-  void flagReview({
+  Future<void> flagReview({
     required String reviewId,
     required String profesorId,
     required String reason,
-  }) {
+  }) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -1025,7 +1472,16 @@ class DataService {
       throw Exception('Este comentario ya está en revisión');
     }
 
-    final id = 'rf${DateTime.now().millisecondsSinceEpoch}';
+    final id = await _firestoreService.addReviewFlag({
+      'reviewId': reviewId,
+      'profesorId': profesorId,
+      'reason': reason.trim(),
+      'flaggedByUserId': _currentUser!.id,
+      'moderatorApprovals': <String>[],
+      'adminApproved': false,
+      'status': _reviewFlagStatusToString(ReviewFlagStatus.pending),
+    });
+
     _reviewFlags.add(
       ReviewFlag(
         id: id,
@@ -1040,8 +1496,7 @@ class DataService {
       ),
     );
 
-    _notifications.insert(
-      0,
+    await _pushNotification(
       AppNotification(
         id: 'n${DateTime.now().millisecondsSinceEpoch}',
         title: '[Moderación] Comentario marcado',
@@ -1053,7 +1508,7 @@ class DataService {
     );
   }
 
-  void approveReviewFlag(String flagId) {
+  Future<void> approveReviewFlag(String flagId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -1089,8 +1544,7 @@ class DataService {
       _hiddenReviewIds.add(flag.reviewId);
       _moderationNotifier.value++;
 
-      _notifications.insert(
-        0,
+      await _pushNotification(
         AppNotification(
           id: 'n${DateTime.now().millisecondsSinceEpoch}',
           title: '[Moderación] Comentario ocultado',
@@ -1102,14 +1556,24 @@ class DataService {
       _notifyReviewAuthor(flag.reviewId, flag.reason);
     }
 
-    _reviewFlags[index] = flag.copyWith(
+    final updatedFlag = flag.copyWith(
       moderatorApprovals: moderatorApprovals,
       adminApproved: adminApproved,
       status: status,
     );
+    _reviewFlags[index] = updatedFlag;
+
+    await _firestoreService.updateReviewFlag(
+      flagId: updatedFlag.id,
+      data: {
+        'moderatorApprovals': updatedFlag.moderatorApprovals.toList(),
+        'adminApproved': updatedFlag.adminApproved,
+        'status': _reviewFlagStatusToString(updatedFlag.status),
+      },
+    );
   }
 
-  void rejectReviewFlag(String flagId) {
+  Future<void> rejectReviewFlag(String flagId) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -1121,7 +1585,13 @@ class DataService {
       throw Exception('Registro de revisión no encontrado');
     }
     final flag = _reviewFlags[index];
-    _reviewFlags[index] = flag.copyWith(status: ReviewFlagStatus.rejected);
+    final updatedFlag = flag.copyWith(status: ReviewFlagStatus.rejected);
+    _reviewFlags[index] = updatedFlag;
+
+    await _firestoreService.updateReviewFlag(
+      flagId: updatedFlag.id,
+      data: {'status': _reviewFlagStatusToString(updatedFlag.status)},
+    );
   }
 
   void _notifyReviewAuthor(String reviewId, String reason) {
@@ -1130,8 +1600,7 @@ class DataService {
       return;
     }
 
-    _notifications.insert(
-      0,
+    _pushNotification(
       AppNotification(
         id: 'n${DateTime.now().millisecondsSinceEpoch}',
         title: 'Tu comentario fue ocultado',
@@ -1149,7 +1618,7 @@ class DataService {
   }
 
   // agregar nueva facultad
-  void agregarFacultad(Facultad facultad) {
+  Future<void> agregarFacultad(Facultad facultad) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -1157,10 +1626,15 @@ class DataService {
       throw Exception('No tienes permisos para administrar facultades');
     }
     _facultades.add(facultad);
+    await _firestoreService.upsertFacultad(
+      facultadId: facultad.id,
+      nombre: facultad.nombre,
+      escuelas: facultad.escuelas.map((e) => e.toJson()).toList(),
+    );
   }
 
   // agregar escuela a facultad
-  void agregarEscuela(String facultadId, Escuela escuela) {
+  Future<void> agregarEscuela(String facultadId, Escuela escuela) async {
     if (isSensitiveActionsLocked) {
       throw Exception(sensitiveActionsLockMessage);
     }
@@ -1176,6 +1650,10 @@ class DataService {
         escuelas: [...facultad.escuelas, escuela],
       );
       _facultades[indice] = facultadActualizada;
+      await _firestoreService.addEscuelaToFacultad(
+        facultadId: facultadId,
+        escuela: escuela.toJson(),
+      );
     }
   }
 
@@ -1197,8 +1675,38 @@ class DataService {
 
   // ======= Comentarios =======
 
+  Comment _commentFromMap(Map<String, dynamic> data) {
+    final createdAtRaw = data['createdAt'];
+    DateTime createdAt;
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is String) {
+      createdAt = DateTime.tryParse(createdAtRaw) ?? DateTime.now();
+    } else {
+      createdAt = DateTime.now();
+    }
+    return Comment(
+      id: data['id'] as String,
+      userId: data['userId'] as String? ?? '',
+      profesorId: data['profesorId'] as String? ?? '',
+      texto: data['texto'] as String? ?? '',
+      fecha: createdAt,
+      esInapropiado: data['esInapropiado'] == true,
+    );
+  }
+
+  Future<void> refreshCommentsFromFirestore({String? profesorId}) async {
+    final data = await _firestoreService.listComments(profesorId: profesorId);
+    _comments
+      ..clear()
+      ..addAll(data.map(_commentFromMap));
+  }
+
   /// Crear un nuevo comentario
-  bool createComment({required String profesorId, required String texto}) {
+  Future<bool> createComment({
+    required String profesorId,
+    required String texto,
+  }) async {
     // Solo usuarios (todos los roles) pueden comentar
     if (!canComment) {
       return false;
@@ -1208,8 +1716,15 @@ class DataService {
       return false;
     }
 
+    final commentId = await _firestoreService.addComment({
+      'userId': _currentUser!.id,
+      'profesorId': profesorId,
+      'texto': texto,
+      'esInapropiado': false,
+    });
+
     final comment = Comment(
-      id: generarIdUnico('comment_'),
+      id: commentId,
       userId: _currentUser!.id,
       profesorId: profesorId,
       texto: texto,

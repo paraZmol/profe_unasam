@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
     _inicializarDatos();
+    _dataService.refreshNotificationsFromFirestore().catchError((_) {});
     // escuchar cambios en tiempo real
     _searchController.addListener(_filterAndSort);
   }
@@ -63,7 +64,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     _inicializarDatos();
   }
 
-  void _inicializarDatos() {
+  Future<void> _inicializarDatos() async {
+    await _dataService.refreshProfesoresFromFirestore();
+    if (!mounted) return;
     _filteredProfesores = _dataService.getProfesores();
     _filterAndSort();
   }

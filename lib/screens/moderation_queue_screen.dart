@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:profe_unasam/models/review_flag.dart';
 import 'package:profe_unasam/services/data_service.dart';
 
 class ModerationQueueScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class ModerationQueueScreen extends StatefulWidget {
 
 class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
   final _dataService = DataService();
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -32,6 +34,18 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
         Navigator.pop(context);
       });
     }
+
+    _loadFlags();
+  }
+
+  Future<void> _loadFlags() async {
+    await _dataService.refreshReviewFlagsFromFirestore(
+      status: ReviewFlagStatus.pending,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
@@ -41,7 +55,9 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Moderación de comentarios')),
-      body: flags.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : flags.isEmpty
           ? Center(
               child: Text(
                 'No hay comentarios en revisión',
@@ -112,11 +128,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 try {
-                                  _dataService.rejectReviewFlag(flag.id);
-                                  setState(() {});
+                                  await _dataService.rejectReviewFlag(flag.id);
+                                  await _loadFlags();
                                 } catch (e) {
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('Error: $e')),
                                   );
@@ -126,11 +143,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 try {
-                                  _dataService.approveReviewFlag(flag.id);
-                                  setState(() {});
+                                  await _dataService.approveReviewFlag(flag.id);
+                                  await _loadFlags();
                                 } catch (e) {
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('Error: $e')),
                                   );

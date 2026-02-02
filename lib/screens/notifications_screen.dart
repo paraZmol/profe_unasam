@@ -12,6 +12,21 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final _dataService = DataService();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    await _dataService.refreshNotificationsFromFirestore();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +47,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'limpiar',
-              onPressed: () {
-                setState(() {
-                  _dataService.clearNotifications();
-                });
+              onPressed: () async {
+                await _dataService.clearNotifications();
+                if (!mounted) return;
+                setState(() {});
               },
             ),
         ],
       ),
-      body: notifications.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : notifications.isEmpty
           ? Center(
               child: Text(
                 'No tienes notificaciones',
@@ -69,10 +86,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     '${n.createdAt.day}/${n.createdAt.month}',
                     style: theme.textTheme.bodySmall,
                   ),
-                  onTap: () {
-                    setState(() {
-                      _dataService.markNotificationRead(n.id);
-                    });
+                  onTap: () async {
+                    await _dataService.markNotificationRead(n.id);
+                    if (!mounted) return;
+                    setState(() {});
                     if (n.actionType == 'review_flag' && n.actionId != null) {
                       Navigator.push(
                         context,

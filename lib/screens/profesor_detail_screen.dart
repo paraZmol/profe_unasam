@@ -199,7 +199,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
     }
 
     try {
-      _dataService.flagReview(
+      await _dataService.flagReview(
         reviewId: reviewId,
         profesorId: profesorId,
         reason: reason,
@@ -606,7 +606,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                     );
                     if (result != null && result is Review) {
                       try {
-                        _dataService.agregarResena(profesor.id, result);
+                        await _dataService.agregarResena(profesor.id, result);
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(

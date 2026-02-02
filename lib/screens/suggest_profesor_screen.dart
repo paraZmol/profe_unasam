@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:profe_unasam/models/suggestion_model.dart';
 import 'package:profe_unasam/services/data_service.dart';
+import 'package:profe_unasam/services/storage_service.dart';
 import 'package:profe_unasam/widgets/loading_dots.dart';
 
 class SuggestProfesorScreen extends StatefulWidget {
@@ -13,13 +17,23 @@ class SuggestProfesorScreen extends StatefulWidget {
 
 class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
   final _dataService = DataService();
+  final _storageService = StorageService();
+  final _imagePicker = ImagePicker();
   final _nombreController = TextEditingController();
   final _cursosController = TextEditingController();
   final _apodoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _selectedFacultadId;
   String? _selectedEscuelaId;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFacultades();
+  }
 
   @override
   void dispose() {
@@ -29,7 +43,29 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
     super.dispose();
   }
 
-  void _submitSuggestion() {
+  Future<void> _loadFacultades() async {
+    await _dataService.refreshFacultadesFromFirestore();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1200,
+    );
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _selectedImageBytes = bytes;
+      _selectedImageName = picked.name;
+    });
+  }
+
+  Future<void> _submitSuggestion() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
 
@@ -49,12 +85,32 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
         .where((c) => c.isNotEmpty)
         .toList();
 
+    if (_selectedImageBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una imagen del docente')),
+      );
+      return;
+    }
+
+    final currentUser = _dataService.getCurrentUser();
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para sugerir')),
+      );
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      _dataService.createSuggestion(
+      final imageUrl = await _storageService.uploadProfesorSuggestionImage(
+        userId: currentUser.id,
+        bytes: _selectedImageBytes!,
+        fileName: _selectedImageName ?? 'docente.jpg',
+      );
+      await _dataService.createSuggestion(
         type: SuggestionType.profesor,
         data: {
           'nombre': _nombreController.text.trim(),
@@ -62,6 +118,7 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
           'apodo': _apodoController.text.trim(),
           if (_selectedFacultadId != null) 'facultadId': _selectedFacultadId,
           if (_selectedEscuelaId != null) 'escuelaId': _selectedEscuelaId,
+          'fotoUrl': imageUrl,
         },
       );
     } catch (e) {
@@ -219,6 +276,36 @@ class _SuggestProfesorScreenState extends State<SuggestProfesorScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              Text('Foto del docente *', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isSubmitting ? null : _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: Text(
+                        _selectedImageBytes == null
+                            ? 'Seleccionar imagen'
+                            : 'Cambiar imagen',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_selectedImageBytes != null) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    _selectedImageBytes!,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

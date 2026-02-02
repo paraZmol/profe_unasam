@@ -21,6 +21,7 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
     super.initState();
     _nombreFacultadController = TextEditingController();
     _nombreEscuelaController = TextEditingController();
+    _loadFacultades();
   }
 
   @override
@@ -30,7 +31,7 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
     super.dispose();
   }
 
-  void _agregarFacultad() {
+  Future<void> _agregarFacultad() async {
     if (!_guardSensitiveAction()) {
       return;
     }
@@ -47,8 +48,9 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
       escuelas: [],
     );
 
+    await _dataService.agregarFacultad(nuevaFacultad);
+    if (!mounted) return;
     setState(() {
-      _dataService.agregarFacultad(nuevaFacultad);
       _nombreFacultadController.clear();
     });
 
@@ -60,7 +62,7 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
     );
   }
 
-  void _agregarEscuela() {
+  Future<void> _agregarEscuela() async {
     if (!_guardSensitiveAction()) {
       return;
     }
@@ -84,8 +86,9 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
       facultadId: _selectedFacultadId!,
     );
 
+    await _dataService.agregarEscuela(_selectedFacultadId!, nuevaEscuela);
+    if (!mounted) return;
     setState(() {
-      _dataService.agregarEscuela(_selectedFacultadId!, nuevaEscuela);
       _nombreEscuelaController.clear();
     });
 
@@ -281,6 +284,12 @@ class _AdminFacultadesScreenState extends State<AdminFacultadesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadFacultades() async {
+    await _dataService.refreshFacultadesFromFirestore();
+    if (!mounted) return;
+    setState(() {});
   }
 
   bool _guardSensitiveAction() {

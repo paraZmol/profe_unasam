@@ -6,10 +6,20 @@ class Escuela {
   Escuela({required this.id, required this.nombre, required this.facultadId});
 
   factory Escuela.fromJson(Map<String, dynamic> json) {
+    String readString(dynamic value, {String fallback = ''}) {
+      if (value is String) {
+        final trimmed = value.trim();
+        return trimmed.isNotEmpty ? trimmed : fallback;
+      }
+      if (value == null) return fallback;
+      final asString = value.toString().trim();
+      return asString.isNotEmpty ? asString : fallback;
+    }
+
     return Escuela(
-      id: json['id'] as String,
-      nombre: json['nombre'] as String,
-      facultadId: json['facultadId'] as String,
+      id: readString(json['id'], fallback: 'unknown'),
+      nombre: readString(json['nombre'], fallback: 'Sin nombre'),
+      facultadId: readString(json['facultadId']),
     );
   }
 
@@ -26,11 +36,22 @@ class Facultad {
   Facultad({required this.id, required this.nombre, required this.escuelas});
 
   factory Facultad.fromJson(Map<String, dynamic> json) {
+    String readString(dynamic value, {String fallback = ''}) {
+      if (value is String) {
+        final trimmed = value.trim();
+        return trimmed.isNotEmpty ? trimmed : fallback;
+      }
+      if (value == null) return fallback;
+      final asString = value.toString().trim();
+      return asString.isNotEmpty ? asString : fallback;
+    }
+
     return Facultad(
-      id: json['id'] as String,
-      nombre: json['nombre'] as String,
-      escuelas: (json['escuelas'] as List<dynamic>)
-          .map((e) => Escuela.fromJson(e as Map<String, dynamic>))
+      id: readString(json['id'], fallback: 'unknown'),
+      nombre: readString(json['nombre'], fallback: 'Sin nombre'),
+      escuelas: (json['escuelas'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(Escuela.fromJson)
           .toList(),
     );
   }

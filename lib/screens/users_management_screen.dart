@@ -44,7 +44,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen>
     _searchController.addListener(_filterUsers);
   }
 
-  void _loadUsers() {
+  Future<void> _loadUsers() async {
+    await _dataService.refreshUsersFromFirestore();
     _filterUsers();
   }
 
@@ -62,12 +63,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen>
     });
   }
 
-  void _changeUserRole(String userId, UserRole newRole) {
+  Future<void> _changeUserRole(String userId, UserRole newRole) async {
     if (!_guardSensitiveAction()) {
       return;
     }
     try {
-      _dataService.setUserRole(userId, newRole);
+      await _dataService.setUserRole(userId, newRole);
       setState(() {
         _loadUsers();
       });
@@ -81,12 +82,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen>
     }
   }
 
-  void _promoteToModerator(String userId) {
+  Future<void> _promoteToModerator(String userId) async {
     if (!_guardSensitiveAction()) {
       return;
     }
     try {
-      _dataService.promoteToModerator(userId);
+      await _dataService.promoteToModerator(userId);
       setState(() {
         _loadUsers();
       });
@@ -100,12 +101,12 @@ class _UsersManagementScreenState extends State<UsersManagementScreen>
     }
   }
 
-  void _demoteModerator(String userId) {
+  Future<void> _demoteModerator(String userId) async {
     if (!_guardSensitiveAction()) {
       return;
     }
     try {
-      _dataService.demoteModerator(userId);
+      await _dataService.demoteModerator(userId);
       setState(() {
         _loadUsers();
       });
@@ -430,9 +431,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen>
                               icon: const Icon(Icons.arrow_upward),
                               tooltip: 'Promover a Administrador',
                               color: Colors.green,
-                              onPressed: () {
+                              onPressed: () async {
                                 try {
-                                  _dataService.promoteToAdmin(entry.key);
+                                  await _dataService.promoteToAdmin(entry.key);
                                   setState(() {
                                     _loadUsers();
                                   });
