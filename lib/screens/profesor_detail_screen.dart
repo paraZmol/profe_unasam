@@ -79,17 +79,6 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
     return Dificultad.values[promedioValor.round()];
   }
 
-  OportunidadAprobacion? _getOportunidadPromedio() {
-    if (_profesor.reviews.isEmpty) return null;
-    final oportunidades = _profesor.reviews
-        .map((r) => r.oportunidadAprobacion)
-        .toList();
-    final promedioValor =
-        oportunidades.fold<int>(0, (sum, o) => sum + o.index).toDouble() /
-        oportunidades.length;
-    return OportunidadAprobacion.values[promedioValor.round()];
-  }
-
   String _getDificultadLabel(Dificultad d) {
     switch (d) {
       case Dificultad.muyFacil:
@@ -102,32 +91,6 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
         return 'Difícil';
       case Dificultad.muyDificil:
         return 'Muy Difícil';
-    }
-  }
-
-  String _getOportunidadLabel(OportunidadAprobacion o) {
-    switch (o) {
-      case OportunidadAprobacion.casioSeguroe:
-        return 'Casi seguro (95%+)';
-      case OportunidadAprobacion.probable:
-        return 'Probable (70-95%)';
-      case OportunidadAprobacion.cincuentaCincuenta:
-        return '50/50';
-      case OportunidadAprobacion.dificil:
-        return 'Difícil (<50%)';
-    }
-  }
-
-  Color _getOportunidadColor(OportunidadAprobacion o) {
-    switch (o) {
-      case OportunidadAprobacion.casioSeguroe:
-        return Colors.green;
-      case OportunidadAprobacion.probable:
-        return Colors.blue;
-      case OportunidadAprobacion.cincuentaCincuenta:
-        return Colors.orange;
-      case OportunidadAprobacion.dificil:
-        return Colors.red;
     }
   }
 
@@ -150,6 +113,48 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
       return reviews;
     }
     return reviews.where((r) => !_dataService.isReviewHidden(r.id)).toList();
+  }
+
+  void _showFullImage(String url) {
+    if (url.isEmpty || url == 'url') return;
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withAlpha((0.85 * 255).toInt()),
+      builder: (context) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              boundaryMargin: const EdgeInsets.all(20),
+              child: Center(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 48,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _promptFlagReview(String reviewId, String profesorId) async {
@@ -255,26 +260,30 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
             const SizedBox(height: 20),
             // foto grande
             Center(
-              child: Hero(
-                tag: profesor.id,
-                child: CircleAvatar(
-                  radius: 80,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  backgroundImage:
-                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
-                      ? NetworkImage(profesor.fotoUrl)
-                      : null,
-                  onBackgroundImageError:
-                      profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
-                      ? (_, __) {}
-                      : null,
-                  child: (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
-                      ? Icon(
-                          Icons.person,
-                          size: 80,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )
-                      : null,
+              child: GestureDetector(
+                onTap: () => _showFullImage(profesor.fotoUrl),
+                child: Hero(
+                  tag: profesor.id,
+                  child: CircleAvatar(
+                    radius: 80,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    backgroundImage:
+                        profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                        ? NetworkImage(profesor.fotoUrl)
+                        : null,
+                    onBackgroundImageError:
+                        profesor.fotoUrl.isNotEmpty && profesor.fotoUrl != 'url'
+                        ? (_, __) {}
+                        : null,
+                    child:
+                        (profesor.fotoUrl.isEmpty || profesor.fotoUrl == 'url')
+                        ? Icon(
+                            Icons.person,
+                            size: 80,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          )
+                        : null,
+                  ),
                 ),
               ),
             ),
@@ -417,7 +426,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Dificultad Promedio',
+                                    'Nivel de dificultad promedio',
                                     style: theme.textTheme.bodySmall,
                                   ),
                                   const SizedBox(height: 8),
@@ -437,89 +446,6 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                           ),
                         ),
                       ),
-
-                    const SizedBox(height: 12),
-
-                    // Oportunidad de aprobar
-                    if (_getOportunidadPromedio() != null)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Oportunidad de Aprobar',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _getOportunidadLabel(
-                                      _getOportunidadPromedio()!,
-                                    ),
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          color: _getOportunidadColor(
-                                            _getOportunidadPromedio()!,
-                                          ),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              Icon(
-                                Icons.check_circle,
-                                color: _getOportunidadColor(
-                                  _getOportunidadPromedio()!,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 12),
-
-                    // Métodos más comunes
-                    if (_profesor.reviews
-                        .where((r) => r.metodosEnsenanza.isNotEmpty)
-                        .isNotEmpty)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Métodos de Enseñanza',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _profesor.reviews
-                                    .expand((r) => r.metodosEnsenanza)
-                                    .toSet()
-                                    .map((metodo) {
-                                      return Chip(
-                                        label: Text(metodo),
-                                        backgroundColor: theme
-                                            .colorScheme
-                                            .primary
-                                            .withAlpha((0.2 * 255).toInt()),
-                                      );
-                                    })
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -542,7 +468,7 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Desbloquea para ver dificultad promedio, oportunidad de aprobar, métodos comunes y consejos.',
+                          'Desbloquea para ver nivel de dificultad promedio y consejos.',
                           style: theme.textTheme.bodySmall,
                         ),
                         const SizedBox(height: 12),
@@ -769,64 +695,12 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Dificultad: ${_getDificultadLabel(review.dificultad)}',
+                                      'Nivel de dificultad: ${_getDificultadLabel(review.dificultad)}',
                                       style: theme.textTheme.bodySmall,
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-
-                                // Oportunidad
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: _getOportunidadColor(
-                                        review.oportunidadAprobacion,
-                                      ),
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Aprobar: ${_getOportunidadLabel(review.oportunidadAprobacion)}',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: _getOportunidadColor(
-                                              review.oportunidadAprobacion,
-                                            ),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                  ],
-                                ),
                                 const SizedBox(height: 12),
-
-                                // Métodos
-                                if (review.metodosEnsenanza.isNotEmpty)
-                                  Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
-                                    children: review.metodosEnsenanza
-                                        .map(
-                                          (m) => Chip(
-                                            label: Text(
-                                              m,
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                            materialTapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            backgroundColor: theme
-                                                .colorScheme
-                                                .primary
-                                                .withAlpha((0.1 * 255).toInt()),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-
-                                if (review.metodosEnsenanza.isNotEmpty)
-                                  const SizedBox(height: 12),
                               ] else ...[
                                 Row(
                                   children: [
@@ -888,13 +762,6 @@ class _ProfesorDetailScreenState extends State<ProfesorDetailScreen>
                                 ),
                               ],
                               const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () {},
-                                  child: const Text('ver más'),
-                                ),
-                              ),
                             ],
                           ),
                         ),

@@ -52,6 +52,11 @@ class DataService {
   final Set<String> _usersPermittedToChangeRole =
       {}; // IDs que pueden cambiar rol
   final List<Comment> _comments = []; // Comentarios de usuarios
+  Map<String, String> _appSettings = {
+    'supportPhone': '',
+    'yapeNumber': '',
+    'yapeQrUrl': '',
+  };
 
   DataService._internal() {
     _profesores = [];
@@ -696,6 +701,61 @@ class DataService {
         data: data,
       ),
     );
+
+    await _notifyModeratorsOfSuggestion(
+      suggestionId: id,
+      type: type,
+      data: data,
+    );
+  }
+
+  Future<void> _notifyModeratorsOfSuggestion({
+    required String suggestionId,
+    required SuggestionType type,
+    required Map<String, dynamic> data,
+  }) async {
+    final name = (data['nombre'] ?? '').toString().trim();
+    final label = type == SuggestionType.profesor
+        ? 'docente'
+        : type == SuggestionType.facultad
+        ? 'facultad'
+        : 'escuela';
+    final title = '[Sugerencias] Nueva $label';
+    final body = name.isNotEmpty
+        ? 'Se sugirió $label: $name.'
+        : 'Se recibió una nueva sugerencia de $label.';
+
+    final recipients = _userRoles.entries
+        .where(
+          (e) => e.value == UserRole.admin || e.value == UserRole.moderator,
+        )
+        .map((e) => e.key)
+        .toSet();
+
+    if (recipients.isEmpty) return;
+
+    for (final userId in recipients) {
+      if (_currentUser != null && userId == _currentUser!.id) {
+        await _pushNotification(
+          AppNotification(
+            id: 'n${DateTime.now().millisecondsSinceEpoch}',
+            title: title,
+            body: body,
+            createdAt: DateTime.now(),
+            actionType: 'suggestion',
+            actionId: suggestionId,
+          ),
+        );
+      } else {
+        await _firestoreService.addNotification(
+          userId: userId,
+          title: title,
+          body: body,
+          actionType: 'suggestion',
+          actionId: suggestionId,
+        );
+      }
+    }
   }
 
   void _validateSuggestion(SuggestionType type, Map<String, dynamic> data) {
@@ -1191,6 +1251,40 @@ class DataService {
     _notifications
       ..clear()
       ..addAll(data.map(_notificationFromMap));
+  }
+
+  Map<String, String> getAppSettings() => Map.unmodifiable(_appSettings);
+
+  String getSupportPhone() => _appSettings['supportPhone'] ?? '';
+
+  String getYapeNumber() => _appSettings['yapeNumber'] ?? '';
+
+  String getYapeQrUrl() => _appSettings['yapeQrUrl'] ?? '';
+
+  Future<void> refreshAppSettingsFromFirestore() async {
+    final data = await _firestoreService.getAppSettings();
+    if (data == null) return;
+    _appSettings = {
+      'supportPhone': (data['supportPhone'] ?? '').toString().trim(),
+      'yapeNumber': (data['yapeNumber'] ?? '').toString().trim(),
+      'yapeQrUrl': (data['yapeQrUrl'] ?? '').toString().trim(),
+    };
+  }
+
+  Future<void> updateAppSettings({
+    required String supportPhone,
+    required String yapeNumber,
+    required String yapeQrUrl,
+  }) async {
+    if (_role != UserRole.admin) {
+      throw Exception('Solo administradores pueden editar la ayuda');
+    }
+    _appSettings = {
+      'supportPhone': supportPhone.trim(),
+      'yapeNumber': yapeNumber.trim(),
+      'yapeQrUrl': yapeQrUrl.trim(),
+    };
+    await _firestoreService.updateAppSettings(_appSettings);
   }
 
   int getUnreadNotificationsCount() {

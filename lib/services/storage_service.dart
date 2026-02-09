@@ -27,6 +27,25 @@ class StorageService {
     return task.ref.getDownloadURL();
   }
 
+  Future<String> uploadYapeQrImage({
+    required String userId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final sanitizedName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final path = 'app_settings/yape_qr/$userId/${timestamp}_$sanitizedName';
+    final ref = _storage.ref().child(path);
+
+    final metadata = SettableMetadata(
+      contentType: _guessContentType(fileName),
+      cacheControl: 'public,max-age=31536000',
+    );
+
+    final task = await ref.putData(bytes, metadata);
+    return task.ref.getDownloadURL();
+  }
+
   String _guessContentType(String fileName) {
     final name = fileName.toLowerCase();
     if (name.endsWith('.png')) return 'image/png';

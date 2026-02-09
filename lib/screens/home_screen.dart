@@ -66,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   Future<void> _inicializarDatos() async {
     await _dataService.refreshProfesoresFromFirestore();
+    await _dataService.refreshNotificationsFromFirestore().catchError((_) {});
     if (!mounted) return;
     _filteredProfesores = _dataService.getProfesores();
     _filterAndSort();
@@ -225,6 +226,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ),
                   ).then((_) => setState(() {}));
                   break;
+                case 'help':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  ).then((_) => _inicializarDatos());
+                  break;
                 case 'pending':
                   if (_dataService.isSensitiveActionsLocked) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -302,6 +311,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       Icon(Icons.account_balance_outlined),
                       SizedBox(width: 8),
                       Text('Sugerir facultad/escuela'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'help',
+                  child: Row(
+                    children: [
+                      Icon(Icons.help_outline),
+                      SizedBox(width: 8),
+                      Text('Ayuda'),
                     ],
                   ),
                 ),

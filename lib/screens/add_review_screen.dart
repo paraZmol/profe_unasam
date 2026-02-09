@@ -26,30 +26,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
   final _consejoController = TextEditingController();
 
   Dificultad _dificultad = Dificultad.normal;
-  OportunidadAprobacion _oportunidad = OportunidadAprobacion.probable;
-  final List<String> _metodosSeleccionados = [];
-
-  final List<String> _metodos = [
-    'Clases magistrales',
-    'Ejercicios prácticos',
-    'Trabajos en grupo',
-    'Laboratorio',
-    'Resolución de problemas',
-    'Aprendizaje basado en proyectos',
-    'Aprendizaje basado en problemas',
-    'Estudios de caso',
-    'Debates en clase',
-    'Exposiciones',
-    'Aula invertida',
-    'Simulaciones',
-    'Talleres',
-    'Tutorías',
-    'Lecturas guiadas',
-    'Uso de TIC/recursos digitales',
-    'Evaluaciones continuas',
-    'Quizzes cortos',
-    'Aprendizaje colaborativo',
-  ];
 
   @override
   void dispose() {
@@ -70,32 +46,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
         return 'Difícil';
       case Dificultad.muyDificil:
         return 'Muy Difícil';
-    }
-  }
-
-  String _getOportunidadLabel(OportunidadAprobacion o) {
-    switch (o) {
-      case OportunidadAprobacion.casioSeguroe:
-        return 'Casi seguro (95%+)';
-      case OportunidadAprobacion.probable:
-        return 'Probable (70-95%)';
-      case OportunidadAprobacion.cincuentaCincuenta:
-        return '50/50';
-      case OportunidadAprobacion.dificil:
-        return 'Difícil (<50%)';
-    }
-  }
-
-  Color _getOportunidadColor(OportunidadAprobacion o) {
-    switch (o) {
-      case OportunidadAprobacion.casioSeguroe:
-        return Colors.green;
-      case OportunidadAprobacion.probable:
-        return Colors.blue;
-      case OportunidadAprobacion.cincuentaCincuenta:
-        return Colors.orange;
-      case OportunidadAprobacion.dificil:
-        return Colors.red;
     }
   }
 
@@ -146,80 +96,7 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
 
             // ============ DIFICULTAD ============
             Text(
-              'DIFICULTAD DE LA MATERIA',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<Dificultad>(
-              segments: <ButtonSegment<Dificultad>>[
-                ButtonSegment<Dificultad>(
-                  value: Dificultad.muyFacil,
-                  label: Text(_getDificultadLabel(Dificultad.muyFacil)),
-                ),
-                ButtonSegment<Dificultad>(
-                  value: Dificultad.facil,
-                  label: Text(_getDificultadLabel(Dificultad.facil)),
-                ),
-                ButtonSegment<Dificultad>(
-                  value: Dificultad.normal,
-                  label: Text(_getDificultadLabel(Dificultad.normal)),
-                ),
-                ButtonSegment<Dificultad>(
-                  value: Dificultad.dificil,
-                  label: Text(_getDificultadLabel(Dificultad.dificil)),
-                ),
-                ButtonSegment<Dificultad>(
-                  value: Dificultad.muyDificil,
-                  label: Text(_getDificultadLabel(Dificultad.muyDificil)),
-                ),
-              ],
-              selected: <Dificultad>{_dificultad},
-              onSelectionChanged: (Set<Dificultad> newSelection) {
-                setState(() {
-                  _dificultad = newSelection.first;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // ============ OPORTUNIDAD ============
-            Text(
-              'OPORTUNIDAD DE APROBAR',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: OportunidadAprobacion.values.map((o) {
-                final isSelected = _oportunidad == o;
-                return FilterChip(
-                  label: Text(_getOportunidadLabel(o)),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _oportunidad = o;
-                    });
-                  },
-                  backgroundColor: _getOportunidadColor(
-                    o,
-                  ).withAlpha((0.2 * 255).toInt()),
-                  selectedColor: _getOportunidadColor(o),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : _getOportunidadColor(o),
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-
-            // ============ METODOS ============
-            Text(
-              'MÉTODOS DE ENSEÑANZA',
+              'NIVEL DE DIFICULTAD',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -228,25 +105,33 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _metodos.map((metodo) {
-                final isSelected = _metodosSeleccionados.contains(metodo);
-                return FilterChip(
-                  label: Text(metodo),
+              children: Dificultad.values.map((d) {
+                final isSelected = _dificultad == d;
+                return ChoiceChip(
+                  label: Text(_getDificultadLabel(d)),
                   selected: isSelected,
-                  onSelected: (selected) {
+                  showCheckmark: false,
+                  selectedColor: Colors.green.withAlpha((0.22 * 255).toInt()),
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? Colors.green.shade800
+                        : theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  side: BorderSide(
+                    color: isSelected
+                        ? Colors.green.shade700
+                        : theme.dividerColor,
+                  ),
+                  onSelected: (_) {
                     setState(() {
-                      if (selected) {
-                        _metodosSeleccionados.add(metodo);
-                      } else {
-                        _metodosSeleccionados.remove(metodo);
-                      }
+                      _dificultad = d;
                     });
                   },
                 );
               }).toList(),
             ),
             const SizedBox(height: 24),
-
             // ============ CONSEJO ============
             Text(
               'CONSEJO PARA OTROS ESTUDIANTES (Opcional)',
@@ -316,9 +201,9 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                     puntuacion: _rating,
                     fecha: DateTime.now(),
                     dificultad: _dificultad,
-                    oportunidadAprobacion: _oportunidad,
+                    oportunidadAprobacion: OportunidadAprobacion.probable,
                     consejo: _consejoController.text.trim(),
-                    metodosEnsenanza: _metodosSeleccionados,
+                    metodosEnsenanza: const [],
                   );
 
                   Navigator.pop(context, newReview);

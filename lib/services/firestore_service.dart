@@ -285,4 +285,18 @@ class FirestoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
+
+  Future<Map<String, dynamic>?> getAppSettings() async {
+    final doc = await _firestore.collection('app_settings').doc('public').get();
+    if (!doc.exists) return null;
+    return {'id': doc.id, ...doc.data()!};
+  }
+
+  Future<void> updateAppSettings(Map<String, dynamic> data) async {
+    await _firestore.collection('app_settings').doc('public').set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

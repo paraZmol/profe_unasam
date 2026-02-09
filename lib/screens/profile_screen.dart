@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/services/data_service.dart';
+import 'package:profe_unasam/services/storage_service.dart';
+
+enum HelpSection { support, creator }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,6 +19,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _aliasController = TextEditingController();
   final _emailController = TextEditingController();
   final _dataService = DataService();
+  final _storageService = StorageService();
+  final _imagePicker = ImagePicker();
+  HelpSection _helpSection = HelpSection.support;
+  bool _isUploadingQr = false;
 
   @override
   void initState() {
@@ -23,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _aliasController.text = user.alias;
       _emailController.text = user.email;
     }
+    _loadHelpSettings();
   }
 
   @override
@@ -30,6 +40,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _aliasController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadHelpSettings() async {
+    await _dataService.refreshAppSettingsFromFirestore();
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _handleSave() async {
@@ -423,6 +439,142 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _editHelpSettings() async {
+    final theme = Theme.of(context);
+    final supportController = TextEditingController(
+      text: _dataService.getSupportPhone(),
+    );
+    final yapeController = TextEditingController(
+      text: _dataService.getYapeNumber(),
+    );
+    final qrController = TextEditingController(
+      text: _dataService.getYapeQrUrl(),
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar ayuda'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Soporte', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextField(
+                controller: supportController,
+                decoration: const InputDecoration(
+                  labelText: 'Número de soporte',
+                  prefixIcon: Icon(Icons.phone_in_talk_outlined),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 16),
+              Text('Ayuda al creador', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextField(
+                controller: yapeController,
+                decoration: const InputDecoration(
+                  labelText: 'Número de Yape',
+                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: qrController,
+                decoration: const InputDecoration(
+                  labelText: 'URL del QR',
+                  prefixIcon: Icon(Icons.qr_code_2),
+                ),
+                keyboardType: TextInputType.url,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return;
+
+    try {
+      await _dataService.updateAppSettings(
+        supportPhone: supportController.text,
+        yapeNumber: yapeController.text,
+        yapeQrUrl: qrController.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ayuda actualizada')));
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _uploadYapeQr() async {
+    if (_isUploadingQr) return;
+    final user = _dataService.getCurrentUser();
+    if (user == null) return;
+
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+      maxWidth: 1200,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _isUploadingQr = true;
+    });
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final url = await _storageService.uploadYapeQrImage(
+        userId: user.id,
+        bytes: bytes,
+        fileName: picked.name,
+      );
+
+      await _dataService.updateAppSettings(
+        supportPhone: _dataService.getSupportPhone(),
+        yapeNumber: _dataService.getYapeNumber(),
+        yapeQrUrl: url,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('QR actualizado')));
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUploadingQr = false;
+      });
+    }
+  }
+
   Widget _buildPermissionItem(
     BuildContext context,
     IconData icon,
@@ -711,6 +863,189 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         label: const Text('Cerrar sesión'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: theme.colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'AYUDA',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Centro de ayuda',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                if (role == UserRole.admin)
+                                  IconButton(
+                                    tooltip: 'Editar ayuda',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    onPressed: _editHelpSettings,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SegmentedButton<HelpSection>(
+                              segments: const <ButtonSegment<HelpSection>>[
+                                ButtonSegment<HelpSection>(
+                                  value: HelpSection.support,
+                                  label: Text('Soporte'),
+                                ),
+                                ButtonSegment<HelpSection>(
+                                  value: HelpSection.creator,
+                                  label: Text('Ayuda al creador'),
+                                ),
+                              ],
+                              selected: <HelpSection>{_helpSection},
+                              onSelectionChanged: (value) {
+                                setState(() {
+                                  _helpSection = value.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            if (_helpSection == HelpSection.support) ...[
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(
+                                  Icons.phone_in_talk_outlined,
+                                ),
+                                title: const Text('Llamar a soporte'),
+                                subtitle: Text(
+                                  _dataService.getSupportPhone().isEmpty
+                                      ? 'No configurado'
+                                      : _dataService.getSupportPhone(),
+                                ),
+                                trailing: IconButton(
+                                  tooltip: 'Copiar número',
+                                  icon: const Icon(Icons.copy),
+                                  onPressed:
+                                      _dataService.getSupportPhone().isEmpty
+                                      ? null
+                                      : () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(
+                                              text: _dataService
+                                                  .getSupportPhone(),
+                                            ),
+                                          );
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Número copiado'),
+                                            ),
+                                          );
+                                        },
+                                ),
+                              ),
+                            ] else ...[
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                ),
+                                title: const Text('Yape'),
+                                subtitle: Text(
+                                  _dataService.getYapeNumber().isEmpty
+                                      ? 'No configurado'
+                                      : _dataService.getYapeNumber(),
+                                ),
+                                trailing: IconButton(
+                                  tooltip: 'Copiar número',
+                                  icon: const Icon(Icons.copy),
+                                  onPressed:
+                                      _dataService.getYapeNumber().isEmpty
+                                      ? null
+                                      : () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(
+                                              text: _dataService
+                                                  .getYapeNumber(),
+                                            ),
+                                          );
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Número copiado'),
+                                            ),
+                                          );
+                                        },
+                                ),
+                              ),
+                              if (role == UserRole.admin) ...[
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _isUploadingQr
+                                        ? null
+                                        : _uploadYapeQr,
+                                    icon: _isUploadingQr
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.upload_file),
+                                    label: Text(
+                                      _isUploadingQr
+                                          ? 'Subiendo QR...'
+                                          : 'Subir QR de Yape',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              if (_dataService.getYapeQrUrl().isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _dataService.getYapeQrUrl(),
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 200,
+                                      alignment: Alignment.center,
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerHigh,
+                                      child: const Text('QR no disponible'),
+                                    ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  height: 200,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        theme.colorScheme.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text('QR no configurado'),
+                                ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
