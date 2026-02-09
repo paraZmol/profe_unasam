@@ -711,7 +711,7 @@ class DataService {
         throw Exception('Nombre de docente inválido');
       }
 
-      if (fotoUrl.isEmpty) {
+      if (fotoUrl.isEmpty || fotoUrl == 'url') {
         throw Exception('La imagen del docente es requerida');
       }
 
@@ -793,6 +793,10 @@ class DataService {
 
     final suggestion = _suggestions[index];
     if (suggestion.type == SuggestionType.profesor) {
+      final fotoUrl = (suggestion.data['fotoUrl'] ?? '').toString().trim();
+      if (fotoUrl.isEmpty || fotoUrl == 'url') {
+        throw Exception('La imagen del docente es requerida para aprobar');
+      }
       final cursosData = suggestion.data['cursos'];
       final cursoLegacy = suggestion.data['curso'];
       final cursos = cursosData is List
