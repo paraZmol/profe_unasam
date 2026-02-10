@@ -11,6 +11,7 @@ import 'package:profe_unasam/screens/suggestions_screen.dart';
 import 'package:profe_unasam/screens/users_management_screen.dart';
 import 'package:profe_unasam/services/data_service.dart';
 import 'package:profe_unasam/widgets/profesor_card.dart';
+import 'package:profe_unasam/widgets/app_logo.dart';
 import 'package:profe_unasam/widgets/search_filter_bar.dart';
 import 'package:profe_unasam/models/user_role.dart';
 import 'package:profe_unasam/utils/route_observer.dart';
@@ -148,7 +149,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DocIn'),
+        title: Row(
+          children: const [
+            AppLogo(size: 28, fallbackText: 'DocIn'),
+            SizedBox(width: 8),
+            Text('DocIn'),
+          ],
+        ),
         elevation: 0,
         actions: [
           IconButton(

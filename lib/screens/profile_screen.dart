@@ -1022,7 +1022,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _dataService.getYapeQrUrl(),
                                     height: 200,
                                     width: double.infinity,
-                                    fit: BoxFit.cover,
+                                    fit: BoxFit.contain,
                                     errorBuilder: (_, __, ___) => Container(
                                       height: 200,
                                       alignment: Alignment.center,
